@@ -1,6 +1,6 @@
 [project]
 name = "homeassistant-greenchoice"
-version = "2.2.0"
+version = "2.3.0"
 description = "Integration to connect Greenchoice.nl with Home Assistant"
 authors = ["Baris Demirdelen <barisdemirdelen@gmail.com>"]
 readme = "README.md"
@@ -8,6 +8,7 @@ requires-python = ">=3.13"
 dependencies = [
     "beautifulsoup4>=4.12.3",
     "homeassistant>=2024.12.5",
+    "pydantic>=2.11.1",
     "requests>=2.32.3",
 ]
 

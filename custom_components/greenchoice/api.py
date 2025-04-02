@@ -1,7 +1,6 @@
 import logging
 from datetime import datetime, UTC
 from typing import Union
-from urllib.parse import urlencode
 
 import requests
 
@@ -97,96 +96,41 @@ class GreenchoiceApi:
         preferences_json = self._validate_response(
             self.request("GET", "/api/v2/Preferences/")
         )
-        return Preferences.from_dict(preferences_json)
+        return Preferences(**preferences_json)
 
     def get_profiles(self) -> list[Profile]:
         profiles_json = self._validate_response(
             self.request("GET", "/api/v2/Profiles/")
         )
-        return [Profile.from_dict(p) for p in profiles_json]
+        return [Profile(**p) for p in profiles_json]
 
     def get_meter_readings(self) -> MeterReadings:
         meter_json = self._validate_response(
             self.request(
                 "GET",
-                (
-                    "/api/v2/customers/"
-                    f"{self.preferences.subject.customerNumber}/"
-                    "agreements/"
-                    f"{self.preferences.subject.agreementId}/"
-                    "meter-readings/"
-                    f"{datetime.now(UTC).year}/"
-                ),
+                MeterReadings.Request(
+                    customer_number=self.preferences.subject.customerNumber,
+                    agreement_id=self.preferences.subject.agreementId,
+                    year=datetime.now(UTC).year,
+                ).build_url(),
             )
         )
 
-        return MeterReadings.from_dict(meter_json)
-
-    def get_ref_ids(self) -> tuple[str, str]:
-        init_config = self.microbus_init()
-
-        customer_id = self.preferences.subject.customerNumber
-        contract_id = self.preferences.subject.agreementId
-        ref_id_electricity = ""
-        ref_id_gas = ""
-
-        all_client_details = init_config.get("klantgegevens")
-        for client_details in all_client_details:
-            if client_details.get("klantnummer") == customer_id:
-                client_addresses = client_details.get("adressen")
-                for client_address in client_addresses:
-                    if (
-                        client_address.get("klantnummer") == customer_id
-                        and client_address.get("overeenkomstId") == contract_id
-                    ):
-                        contracts = client_address.get("contracten")
-                        for contract in contracts:
-                            if (
-                                contract.get("marktsegment") == "E"
-                            ):  # E stands for electricity, G for gas
-                                ref_id_electricity = contract.get("refId")
-                            else:
-                                ref_id_gas = contract.get("refId")
-
-        return ref_id_electricity, ref_id_gas
+        # noinspection PyTypeChecker
+        return MeterReadings(productTypes=meter_json)
 
     def get_rates(self) -> Rates:
-        profiles = self.get_profiles()
-        current_profile: Profile | None = None
-        for profile in profiles:
-            if (
-                profile.customerNumber == self.preferences.subject.customerNumber
-                and profile.agreementId == self.preferences.subject.agreementId
-            ):
-                current_profile = profile
-                break
-        if not current_profile:
-            raise ApiError("Cant find profile")
-
-        ref_id_electricity, ref_id_gas = self.get_ref_ids()
-
-        req_data = {
-            "HouseNumber": current_profile.houseNumber,
-            "ZipCode": current_profile.postalCode,
-        }
-        if ref_id_electricity:
-            req_data["ReferenceIdElectricity"] = ref_id_electricity
-            req_data["AgreementIdElectricity"] = current_profile.agreementId
-        if ref_id_gas:
-            req_data["ReferenceIdGas"] = ref_id_gas
-            req_data["AgreementIdGas"] = current_profile.agreementId
-
-        response = self.request(
-            "GET",
-            f"/api/v2/customers/{current_profile.customerNumber}/rates?{urlencode(req_data)}",
+        pricing_details = self._validate_response(
+            self.request(
+                "GET",
+                Rates.Request(
+                    customer_number=self.preferences.subject.customerNumber,
+                    agreement_id=self.preferences.subject.agreementId,
+                ).build_url(),
+            )
         )
-        if response.status_code == 404:
-            response = self.request("GET", "/api/tariffs")
-        pricing_details = self._validate_response(response)
-        if "huidig" in pricing_details:
-            pricing_details = pricing_details["huidig"]
 
-        return Rates.from_dict(pricing_details)
+        return Rates(**pricing_details)
 
     def update(self) -> dict:
         self.result = {}
@@ -245,18 +189,26 @@ class GreenchoiceApi:
 
         pricing_details = self.get_rates()
 
-        if pricing_details.stroom:
+        if pricing_details.electricity:
+            electricity_usage = (
+                pricing_details.electricity.rates.usage_dependent_electricity_rates
+            )
+
             result["electricity_price_single"] = (
-                pricing_details.stroom.leveringEnkelAllIn
+                electricity_usage.all_in_delivery_single_including_vat
             )
-            result["electricity_price_low"] = pricing_details.stroom.leveringLaagAllIn
-            result["electricity_price_high"] = pricing_details.stroom.leveringHoogAllIn
-            result["electricity_return_price"] = (
-                pricing_details.stroom.terugleverVergoeding
+            result["electricity_price_low"] = (
+                electricity_usage.all_in_delivery_low_including_vat
             )
+            result["electricity_price_high"] = (
+                electricity_usage.all_in_delivery_normal_including_vat
+            )
+            result["electricity_return_price"] = electricity_usage.feed_in_compensation
             result["electricity_return_cost"] = (
-                pricing_details.stroom.terugleverKostenIncBtw
+                electricity_usage.feed_in_cost_including_vat
             )
 
         if pricing_details.gas:
-            result["gas_price"] = pricing_details.gas.leveringAllIn
+            result["gas_price"] = (
+                pricing_details.gas.rates.usage_dependent_gas_rates.all_in_delivery_including_vat
+            )

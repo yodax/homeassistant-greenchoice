@@ -1,5 +1,6 @@
 import datetime
 
+
 from custom_components.greenchoice.api import GreenchoiceApi
 
 
@@ -68,10 +69,4 @@ def test_with_old_tariffs_api(mock_api):
         "measurement_date_electricity": datetime.datetime(2022, 5, 6, 0, 0),
         "gas_consumption": 10000.0,
         "measurement_date_gas": datetime.datetime(2022, 5, 6, 0, 0),
-        "electricity_price_single": 0.35,
-        "electricity_price_low": 0.3,
-        "electricity_price_high": 0.4,
-        "electricity_return_price": 0.09,
-        "electricity_return_cost": 0.02,
-        "gas_price": 0.7,
     }
