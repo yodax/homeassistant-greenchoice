@@ -45,12 +45,12 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(
             CONF_CUSTOMER_NUMBER,
             description="Fill in if you would like to use a specific customer number",
-            default="",
+            default=0,
         ): cv.positive_int,
         vol.Optional(
             CONF_AGREEMENT_ID,
             description="Fill in if you would like to use a specific agreement id",
-            default="",
+            default=0,
         ): cv.positive_int,
     }
 )
