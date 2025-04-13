@@ -5,7 +5,7 @@ from typing import Union
 import requests
 
 from .auth import Auth
-from .model import MeterReadings, Reading, Rates, Profile
+from .model import MeterReadings, Reading, Rates, Profile, SensorUpdate
 from .model import Preferences
 from .util import curl_dump
 
@@ -39,7 +39,7 @@ class GreenchoiceApi:
         self.customer_number: int | None = customer_number
         self.agreement_id: int | None = agreement_id
 
-        self.result = {}
+        self.result: SensorUpdate = SensorUpdate()
 
     def _authenticated_request(
         self, method: str, endpoint: str, data=None, json=None
@@ -139,8 +139,8 @@ class GreenchoiceApi:
 
         return Rates(**pricing_details)
 
-    def update(self) -> dict:
-        self.result = {}
+    def update(self) -> SensorUpdate:
+        self.result = SensorUpdate()
         if not self.customer_number or not self.agreement_id:
             try:
                 preferences = self.get_preferences()
@@ -164,7 +164,7 @@ class GreenchoiceApi:
 
         return self.result
 
-    def update_usage_values(self, result: dict) -> None:
+    def update_usage_values(self, result: SensorUpdate) -> None:
         _LOGGER.debug("Retrieving meter values")
 
         meter_readings = self.get_meter_readings()
@@ -173,29 +173,30 @@ class GreenchoiceApi:
         gas_reading: Reading | None = meter_readings.last_gas_reading
 
         if electricity_reading:
-            result["electricity_consumption_low"] = (
+            result.electricity_consumption_off_peak = (
                 electricity_reading.off_peak_consumption
             )
-            result["electricity_consumption_high"] = (
+            result.electricity_consumption_normal = (
                 electricity_reading.normal_consumption
             )
-            result["electricity_consumption_total"] = (
+
+            result.electricity_consumption_total = (
                 electricity_reading.off_peak_consumption
                 + electricity_reading.normal_consumption
             )
-            result["electricity_return_low"] = electricity_reading.off_peak_feed_in
-            result["electricity_return_high"] = electricity_reading.normal_feed_in
-            result["electricity_return_total"] = (
+            result.electricity_feed_in_off_peak = electricity_reading.off_peak_feed_in
+            result.electricity_feed_in_normal = electricity_reading.normal_feed_in
+            result.electricity_feed_in_total = (
                 electricity_reading.off_peak_feed_in
                 + electricity_reading.normal_feed_in
             )
-            result["measurement_date_electricity"] = electricity_reading.reading_date
+            result.electricity_reading_date = electricity_reading.reading_date
 
         if gas_reading:
-            result["gas_consumption"] = gas_reading.gas
-            result["measurement_date_gas"] = gas_reading.reading_date
+            result.gas_consumption = gas_reading.gas
+            result.gas_reading_date = gas_reading.reading_date
 
-    def update_contract_values(self, result: dict) -> None:
+    def update_contract_values(self, result: SensorUpdate) -> None:
         _LOGGER.debug("Retrieving contract values")
 
         pricing_details = self.get_rates()
@@ -205,21 +206,21 @@ class GreenchoiceApi:
                 pricing_details.electricity.rates.usage_dependent_electricity_rates
             )
 
-            result["electricity_price_single"] = (
+            result.electricity_price_single = (
                 electricity_usage.all_in_delivery_single_including_vat
             )
-            result["electricity_price_low"] = (
+            result.electricity_price_off_peak = (
                 electricity_usage.all_in_delivery_low_including_vat
             )
-            result["electricity_price_high"] = (
+            result.electricity_price_normal = (
                 electricity_usage.all_in_delivery_normal_including_vat
             )
-            result["electricity_return_price"] = electricity_usage.feed_in_compensation
-            result["electricity_return_cost"] = (
+            result.electricity_feed_in_compensation = (
+                electricity_usage.feed_in_compensation
+            )
+            result.electricity_feed_in_cost = (
                 electricity_usage.feed_in_cost_including_vat
             )
 
         if pricing_details.gas:
-            result["gas_price"] = (
-                pricing_details.gas.rates.usage_dependent_gas_rates.all_in_delivery_including_vat
-            )
+            result.gas_price = pricing_details.gas.rates.usage_dependent_gas_rates.all_in_delivery_including_vat

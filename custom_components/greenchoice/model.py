@@ -201,3 +201,23 @@ class MeterReadings(BaseModel):
                     month.readings, key=lambda r: r.reading_date, reverse=True
                 ):
                     yield reading
+
+
+class SensorUpdate(BaseModel):
+    electricity_consumption_off_peak: float | None = None
+    electricity_consumption_normal: float | None = None
+    electricity_consumption_total: float | None = None
+    electricity_feed_in_off_peak: float | None = None
+    electricity_feed_in_normal: float | None = None
+    electricity_feed_in_total: float | None = None
+    electricity_reading_date: datetime | None = None
+
+    electricity_price_single: float | None = None
+    electricity_price_off_peak: float | None = None
+    electricity_price_normal: float | None = None
+    electricity_feed_in_compensation: float | None = None
+    electricity_feed_in_cost: float | None = None
+
+    gas_consumption: float | None = None
+    gas_reading_date: datetime | None = None
+    gas_price: float | None = None

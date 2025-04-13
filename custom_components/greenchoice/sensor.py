@@ -23,6 +23,7 @@ from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.util import slugify, Throttle
 
 from .api import GreenchoiceApi
+from .model import SensorUpdate
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,37 +65,37 @@ class Unit:
 
 SensorInfo = namedtuple("SensorInfo", ["device_class", "unit", "icon"])
 sensor_infos = {
-    "electricity_consumption_high": SensorInfo(
-        SensorDeviceClass.ENERGY, Unit.KWH, "weather-sunset-up"
-    ),
-    "electricity_consumption_low": SensorInfo(
+    "electricity_consumption_off_peak": SensorInfo(
         SensorDeviceClass.ENERGY, Unit.KWH, "weather-sunset-down"
+    ),
+    "electricity_consumption_normal": SensorInfo(
+        SensorDeviceClass.ENERGY, Unit.KWH, "weather-sunset-up"
     ),
     "electricity_consumption_total": SensorInfo(
         SensorDeviceClass.ENERGY, Unit.KWH, "transmission-tower-export"
     ),
-    "electricity_return_high": SensorInfo(
+    "electricity_feed_in_off_peak": SensorInfo(
         SensorDeviceClass.ENERGY, Unit.KWH, "solar-power"
     ),
-    "electricity_return_low": SensorInfo(
+    "electricity_feed_in_normal": SensorInfo(
         SensorDeviceClass.ENERGY, Unit.KWH, "solar-power"
     ),
     "electricity_return_total": SensorInfo(
         SensorDeviceClass.ENERGY, Unit.KWH, "transmission-tower-import"
     ),
-    "electricity_price_low": SensorInfo(
-        SensorDeviceClass.MONETARY, Unit.EUR_KWH, "currency-eur"
-    ),
-    "electricity_price_high": SensorInfo(
-        SensorDeviceClass.MONETARY, Unit.EUR_KWH, "currency-eur"
-    ),
     "electricity_price_single": SensorInfo(
         SensorDeviceClass.MONETARY, Unit.EUR_KWH, "currency-eur"
     ),
-    "electricity_return_price": SensorInfo(
+    "electricity_price_off_peak": SensorInfo(
         SensorDeviceClass.MONETARY, Unit.EUR_KWH, "currency-eur"
     ),
-    "electricity_return_cost": SensorInfo(
+    "electricity_price_normal": SensorInfo(
+        SensorDeviceClass.MONETARY, Unit.EUR_KWH, "currency-eur"
+    ),
+    "electricity_feed_in_compensation": SensorInfo(
+        SensorDeviceClass.MONETARY, Unit.EUR_KWH, "currency-eur"
+    ),
+    "electricity_feed_in_cost": SensorInfo(
         SensorDeviceClass.MONETARY, Unit.EUR_KWH, "currency-eur"
     ),
     "gas_consumption": SensorInfo(SensorDeviceClass.GAS, Unit.M3, "fire"),
@@ -109,11 +110,11 @@ def setup_platform(
     add_entities: AddEntitiesCallback,
     discovery_info: t.Optional[DiscoveryInfoType] = None,
 ) -> None:
-    name = config.get(CONF_NAME)
-    username = config.get(CONF_USERNAME)
-    password = config.get(CONF_PASSWORD)
-    customer_number = config.get(CONF_CUSTOMER_NUMBER) or None
-    agreement_id = config.get(CONF_AGREEMENT_ID) or None
+    name: str = config.get(CONF_NAME)
+    username: str = config.get(CONF_USERNAME)
+    password: str = config.get(CONF_PASSWORD)
+    customer_number: int | None = config.get(CONF_CUSTOMER_NUMBER) or None
+    agreement_id: int | None = config.get(CONF_AGREEMENT_ID) or None
 
     _LOGGER.debug("Set up platform")
     greenchoice_api = GreenchoiceApi(
@@ -135,7 +136,7 @@ def setup_platform(
 
 
 @Throttle(MIN_TIME_BETWEEN_UPDATES)
-def throttled_api_update(api):
+def throttled_api_update(api) -> SensorUpdate:
     _LOGGER.debug("Throttled update called.")
     api_result = api.update()
     _LOGGER.debug("Api result: %s", api_result)
@@ -145,17 +146,17 @@ def throttled_api_update(api):
 class GreenchoiceSensor(SensorEntity):
     def __init__(
         self,
-        greenchoice_api,
-        name,
-        measurement_type,
+        greenchoice_api: GreenchoiceApi,
+        name: str,
+        measurement_type: str,
     ):
         self._api = greenchoice_api
         self._measurement_type = measurement_type
         self._measurement_date = None
         self._measurement_date_key = (
-            "measurement_date_electricity"
+            "electricity_reading_date"
             if "electricity" in self._measurement_type
-            else "measurement_date_gas"
+            else "gas_reading_date"
         )
 
         sensor_info = sensor_infos[self._measurement_type]
@@ -175,13 +176,13 @@ class GreenchoiceSensor(SensorEntity):
 
         if (
             not api_result
-            or self._measurement_type not in api_result
-            or self._measurement_date_key not in api_result
+            or not hasattr(api_result, self._measurement_type)
+            or not hasattr(api_result, self._measurement_date_key)
         ):
             return
 
-        self._attr_native_value = api_result[self._measurement_type]
-        self._measurement_date = api_result[self._measurement_date_key]
+        self._attr_native_value = getattr(api_result, self._measurement_type)
+        self._measurement_date = getattr(api_result, self._measurement_date_key)
 
     @property
     def measurement_type(self):
