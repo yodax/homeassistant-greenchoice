@@ -84,7 +84,7 @@ class GreenchoiceApi:
         try:
             response_json = response.json()
         except requests.exceptions.JSONDecodeError as e:
-            raise ApiError("Could not parse response: invalid JSON", e)
+            raise ApiError(f"Could not parse response: invalid JSON: {e}")
 
         return response_json
 
@@ -109,23 +109,23 @@ class GreenchoiceApi:
             self.request(
                 "GET",
                 MeterReadings.Request(
-                    customer_number=self.preferences.subject.customerNumber,
-                    agreement_id=self.preferences.subject.agreementId,
+                    customer_number=self.preferences.subject.customer_number,
+                    agreement_id=self.preferences.subject.agreement_id,
                     year=datetime.now(UTC).year,
                 ).build_url(),
             )
         )
 
         # noinspection PyTypeChecker
-        return MeterReadings(productTypes=meter_json)
+        return MeterReadings(product_types=meter_json)
 
     def get_rates(self) -> Rates:
         pricing_details = self._validate_response(
             self.request(
                 "GET",
                 Rates.Request(
-                    customer_number=self.preferences.subject.customerNumber,
-                    agreement_id=self.preferences.subject.agreementId,
+                    customer_number=self.preferences.subject.customer_number,
+                    agreement_id=self.preferences.subject.agreement_id,
                 ).build_url(),
             )
         )
@@ -164,25 +164,26 @@ class GreenchoiceApi:
 
         if electricity_reading:
             result["electricity_consumption_low"] = (
-                electricity_reading.offPeakConsumption
+                electricity_reading.off_peak_consumption
             )
             result["electricity_consumption_high"] = (
-                electricity_reading.normalConsumption
+                electricity_reading.normal_consumption
             )
             result["electricity_consumption_total"] = (
-                electricity_reading.offPeakConsumption
-                + electricity_reading.normalConsumption
+                electricity_reading.off_peak_consumption
+                + electricity_reading.normal_consumption
             )
-            result["electricity_return_low"] = electricity_reading.offPeakFeedIn
-            result["electricity_return_high"] = electricity_reading.normalFeedIn
+            result["electricity_return_low"] = electricity_reading.off_peak_feed_in
+            result["electricity_return_high"] = electricity_reading.normal_feed_in
             result["electricity_return_total"] = (
-                electricity_reading.offPeakFeedIn + electricity_reading.normalFeedIn
+                electricity_reading.off_peak_feed_in
+                + electricity_reading.normal_feed_in
             )
-            result["measurement_date_electricity"] = electricity_reading.readingDate
+            result["measurement_date_electricity"] = electricity_reading.reading_date
 
         if gas_reading:
             result["gas_consumption"] = gas_reading.gas
-            result["measurement_date_gas"] = gas_reading.readingDate
+            result["measurement_date_gas"] = gas_reading.reading_date
 
     def update_contract_values(self, result: dict) -> None:
         _LOGGER.debug("Retrieving contract values")

@@ -60,7 +60,6 @@
           "allInDeliveryIncludingVat": 0.80,
           "delivery": 0.18,
           "allInDeliveryVat": 0.15,
-          "energyTaxExcludingVat": 0.5,
           "energyTax": 0.5,
           "sustainableEnergySurcharge": null
         },

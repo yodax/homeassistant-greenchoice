@@ -5,7 +5,7 @@ from datetime import datetime, date
 from functools import cached_property
 from typing import Iterator
 
-from pydantic import BaseModel, Field, AliasChoices, ConfigDict
+from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 
@@ -13,119 +13,47 @@ class CamelCaseModel(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel)
 
 
-class Profile(BaseModel):
+class Profile(CamelCaseModel):
     """/api/v2/profiles"""
 
-    customerNumber: int
-    agreementId: int
-    roleName: str
-    name: str
-    street: str
-    houseNumber: int
-    houseNumberAddition: int | str | None = None
-    postalCode: str
-    city: str
-    energySupplyStatus: str
-    moveInDate: datetime
-    hasActiveGasSupply: bool
-    hasActiveElectricitySupply: bool
-    moveOutDate: datetime | None = None
+    customer_number: int
+    agreement_id: int
+    role_name: str | None = None
+    name: str | None = None
+    street: str | None = None
+    house_number: int | None = None
+    house_number_addition: int | str | None = None
+    postal_code: str | None = None
+    city: str | None = None
+    energy_supply_status: str | None = None
+    move_in_date: datetime | None = None
+    has_active_gas_supply: bool | None = None
+    has_active_electricity_supply: bool | None = None
+    move_out_date: datetime | None = None
 
 
-class PreferencesSubject(BaseModel):
-    customerNumber: int
-    agreementId: int
-    LeveringsStatus: int | None = None
+class PreferencesSubject(CamelCaseModel):
+    customer_number: int
+    agreement_id: int
 
 
-class Preferences(BaseModel):
+class Preferences(CamelCaseModel):
     """/api/v2/preferences"""
 
-    accountId: uuid.UUID
+    account_id: uuid.UUID
     subject: PreferencesSubject
 
 
-class Account(BaseModel):
+class Account(CamelCaseModel):
     """/api/v2/accounts"""
 
-    accountId: uuid.UUID
-    email: str
-    accountType: str
-    firstName: str
-    emailModifiedOnUtc: datetime
-    accountTypeModifiedOnUtc: datetime
-    firstNameModifiedOnUtc: datetime
-
-
-class ElectricityTariff(BaseModel):
-    leveringHoog: float
-    leveringLaag: float
-    leveringEnkel: float
-    leveringHoogBtw: float
-    leveringLaagBtw: float
-    leveringEnkelBtw: float
-    soortMeter: str
-    terugLeveringEnkel: float
-    terugLeveringHoog: float
-    terugLeveringLaag: float
-    terugleverVergoeding: float
-    terugleverKostenIncBtw: float
-    terugleverKostenExcBtw: float
-    terugleverKostenBtw: float
-    btw: float
-    btwPercentage: float
-    vastrechtPerDagExcBtw: float
-    vastrechtPerDagIncBtw: float
-    vastrechtPerDagBtw: float
-    netbeheerPerDagExcBtw: float
-    netbeheerPerDagIncBtw: float
-    netbeheerPerDagBtw: float
-    reb: float
-    sde: float
-    capaciteit: str | None = None
-    rebTeruggaveIncBtw: float | None = None
-    leveringLaagAllIn: float = Field(
-        validation_alias=AliasChoices("leveringLaagAllIn", "leveringLaagAllin")
-    )
-    leveringHoogAllIn: float = Field(
-        validation_alias=AliasChoices("leveringHoogAllIn", "leveringHoogAllin")
-    )
-    leveringEnkelAllIn: float = Field(
-        validation_alias=AliasChoices("leveringEnkelAllIn", "leveringEnkelAllin")
-    )
-
-
-class GasTariff(BaseModel):
-    levering: float
-    leveringAllIn: float
-    leveringBtw: float
-    btw: float
-    btwPercentage: float
-    vastrechtPerDagExcBtw: float
-    vastrechtPerDagIncBtw: float
-    vastrechtPerDagBtw: float
-    netbeheerPerDagExcBtw: float
-    netbeheerPerDagIncBtw: float
-    netbeheerPerDagBtw: float
-    reb: float
-    sde: float
-    capaciteit: str | None = None
-
-
-class RatesV1(BaseModel):
-    """/api/v2/customers/<customerNumber>/rates
-    ?AgreementIdElectricity=<agreementId>
-    &AgreementIdGas=<agreementId>
-    &HouseNumber=<houseNumber>
-    &ReferenceIdElectricity=<refIdElectricity>
-    &ReferenceIdGas=<refIdGas>
-    &ZipCode=<zipCode>>"""
-
-    beginDatum: datetime
-    eindDatum: datetime
-
-    stroom: ElectricityTariff | None = None
-    gas: GasTariff | None = None
+    account_id: uuid.UUID
+    email: str | None = None
+    account_type: str | None = None
+    first_name: str | None = None
+    email_modified_on_utc: datetime | None = None
+    account_type_modified_on_utc: datetime | None = None
+    first_name_modified_on_utc: datetime | None = None
 
 
 class UsageDependentElectricityRates(CamelCaseModel):
@@ -151,7 +79,6 @@ class UsageDependentGasRates(CamelCaseModel):
     all_in_delivery_including_vat: float
     delivery: float
     all_in_delivery_vat: float
-    energy_tax_excluding_vat: float
     energy_tax: float
     sustainable_energy_surcharge: float | None = None
 
@@ -187,7 +114,7 @@ class Contract(CamelCaseModel):
     sub_agreement_id: int
 
 
-class Rates(CamelCaseModel):
+class Rates(BaseModel):
     id: int
     contracts: list[Contract]
 
@@ -217,12 +144,12 @@ class Rates(CamelCaseModel):
         return None
 
 
-class Reading(BaseModel):
-    readingDate: datetime
-    normalConsumption: float | None = None
-    offPeakConsumption: float | None = None
-    normalFeedIn: float | None = None
-    offPeakFeedIn: float | None = None
+class Reading(CamelCaseModel):
+    reading_date: datetime
+    normal_consumption: float | None = None
+    off_peak_consumption: float | None = None
+    normal_feed_in: float | None = None
+    off_peak_feed_in: float | None = None
     gas: float | None = None
 
 
@@ -231,13 +158,13 @@ class MeterMonth(BaseModel):
     readings: list[Reading]
 
 
-class MeterProduct(BaseModel):
-    productType: str
+class MeterProduct(CamelCaseModel):
+    product_type: str
     months: list[MeterMonth]
 
 
 class MeterReadings(BaseModel):
-    productTypes: list[MeterProduct]
+    product_types: list[MeterProduct]
 
     class Request(BaseModel):
         request_url: str = """/api/v2/customers/{customer_number}/agreements/{agreement_id}/meter-readings/{year}/"""
@@ -266,11 +193,11 @@ class MeterReadings(BaseModel):
         return None
 
     def iter_readings(self, product_type) -> Iterator[Reading]:
-        for product in self.productTypes:
-            if product.productType.lower() != product_type:
+        for product in self.product_types:
+            if product.product_type.lower() != product_type:
                 continue
             for month in sorted(product.months, key=lambda p: p.month, reverse=True):
                 for reading in sorted(
-                    month.readings, key=lambda r: r.readingDate, reverse=True
+                    month.readings, key=lambda r: r.reading_date, reverse=True
                 ):
                     yield reading
