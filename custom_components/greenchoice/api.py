@@ -56,12 +56,10 @@ class GreenchoiceApi:
 
         return response
 
-    def request(
-        self, method: str, endpoint: str, data=None, _retry_count=2
-    ) -> requests.Response:
+    def request(self, endpoint: str, data=None, _retry_count=2) -> requests.Response:
         try:
             target_url = BASE_URL + endpoint
-            response = self._authenticated_request(method, target_url, json=data)
+            response = self._authenticated_request("GET", target_url, json=data)
 
             if len(response.history) > 1:
                 _LOGGER.debug("Response history len > 1. %s", response.history)
@@ -78,7 +76,7 @@ class GreenchoiceApi:
                 raise ApiError(f"HTTP Error: {e}")
 
             _LOGGER.debug("Retrying request")
-            return self.request(method, endpoint, data, _retry_count - 1)
+            return self.request(endpoint, data, _retry_count - 1)
 
         _LOGGER.debug("Request success")
         return response
@@ -95,26 +93,17 @@ class GreenchoiceApi:
 
         return response_json
 
-    def microbus_init(self) -> dict:
-        response = self.request("GET", "/microbus/init")
-        return self._validate_response(response)
-
     def get_preferences(self) -> Preferences:
-        preferences_json = self._validate_response(
-            self.request("GET", "/api/v2/Preferences/")
-        )
+        preferences_json = self._validate_response(self.request("/api/v2/Preferences/"))
         return Preferences(**preferences_json)
 
     def get_profiles(self) -> list[Profile]:
-        profiles_json = self._validate_response(
-            self.request("GET", "/api/v2/Profiles/")
-        )
+        profiles_json = self._validate_response(self.request("/api/v2/Profiles/"))
         return [Profile(**p) for p in profiles_json]
 
     def get_meter_readings(self) -> MeterReadings:
         meter_json = self._validate_response(
             self.request(
-                "GET",
                 MeterReadings.Request(
                     customer_number=self.customer_number,
                     agreement_id=self.agreement_id,
@@ -129,7 +118,6 @@ class GreenchoiceApi:
     def get_rates(self) -> Rates:
         pricing_details = self._validate_response(
             self.request(
-                "GET",
                 Rates.Request(
                     customer_number=self.customer_number,
                     agreement_id=self.agreement_id,
