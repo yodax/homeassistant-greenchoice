@@ -1,5 +1,7 @@
 import datetime
 
+import pytest
+from requests_mock.exceptions import NoMockAddress
 
 from custom_components.greenchoice.api import GreenchoiceApi
 
@@ -70,3 +72,45 @@ def test_with_old_tariffs_api(mock_api):
         "gas_consumption": 10000.0,
         "measurement_date_gas": datetime.datetime(2022, 5, 6, 0, 0),
     }
+
+
+def test_update_request_with_agreement_id(
+    mock_api,
+):
+    mock_api(has_gas=True, has_rates=True)
+
+    greenchoice_api = GreenchoiceApi(
+        "fake_user", "fake_password", customer_number=2222, agreement_id=1111
+    )
+    result = greenchoice_api.update()
+
+    assert result == {
+        "electricity_consumption_low": 60000.0,
+        "electricity_consumption_high": 50000.0,
+        "electricity_return_low": 6000.0,
+        "electricity_return_high": 5000.0,
+        "electricity_consumption_total": 110000.0,
+        "electricity_return_total": 11000.0,
+        "measurement_date_electricity": datetime.datetime(2022, 5, 6, 0, 0),
+        "gas_consumption": 10000.0,
+        "measurement_date_gas": datetime.datetime(2022, 5, 6, 0, 0),
+        "electricity_price_single": 0.25,
+        "electricity_price_low": 0.2,
+        "electricity_price_high": 0.3,
+        "electricity_return_price": 0.08,
+        "electricity_return_cost": 0.01,
+        "gas_price": 0.8,
+    }
+
+
+def test_update_request_without_correct_agreement(
+    mock_api,
+):
+    mock_api(has_gas=True, has_rates=True)
+
+    greenchoice_api = GreenchoiceApi(
+        "fake_user", "fake_password", customer_number=1, agreement_id=2
+    )
+
+    with pytest.raises(NoMockAddress):
+        greenchoice_api.update()

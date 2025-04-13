@@ -28,6 +28,8 @@ _LOGGER = logging.getLogger(__name__)
 
 CONF_USERNAME = "username"
 CONF_PASSWORD = "password"  # nosec:B105
+CONF_CUSTOMER_NUMBER = "customer_number"
+CONF_AGREEMENT_ID = "agreement_id"
 
 DEFAULT_NAME = "Energieverbruik"
 DEFAULT_DATE_FORMAT = "%y-%m-%dT%H:%M:%S"
@@ -39,6 +41,16 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Required(CONF_USERNAME): cv.string,
         vol.Required(CONF_PASSWORD): cv.string,
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
+        vol.Optional(
+            CONF_CUSTOMER_NUMBER,
+            description="Fill in if you would like to use a specific customer number",
+            default="",
+        ): cv.positive_int,
+        vol.Optional(
+            CONF_AGREEMENT_ID,
+            description="Fill in if you would like to use a specific agreement id",
+            default="",
+        ): cv.positive_int,
     }
 )
 
@@ -100,9 +112,13 @@ def setup_platform(
     name = config.get(CONF_NAME)
     username = config.get(CONF_USERNAME)
     password = config.get(CONF_PASSWORD)
+    customer_number = config.get(CONF_CUSTOMER_NUMBER) or None
+    agreement_id = config.get(CONF_AGREEMENT_ID) or None
 
     _LOGGER.debug("Set up platform")
-    greenchoice_api = GreenchoiceApi(username, password)
+    greenchoice_api = GreenchoiceApi(
+        username, password, customer_number=customer_number, agreement_id=agreement_id
+    )
 
     throttled_api_update(greenchoice_api)
 

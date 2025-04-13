@@ -28,9 +28,16 @@ class ApiError(Exception):
 
 
 class GreenchoiceApi:
-    def __init__(self, username: str, password: str):
+    def __init__(
+        self,
+        username: str,
+        password: str,
+        customer_number: int | None = None,
+        agreement_id: int | None = None,
+    ):
         self.auth = Auth(BASE_URL, username, password)
-        self.preferences: Preferences | None = None
+        self.customer_number: int | None = customer_number
+        self.agreement_id: int | None = agreement_id
 
         self.result = {}
 
@@ -109,8 +116,8 @@ class GreenchoiceApi:
             self.request(
                 "GET",
                 MeterReadings.Request(
-                    customer_number=self.preferences.subject.customer_number,
-                    agreement_id=self.preferences.subject.agreement_id,
+                    customer_number=self.customer_number,
+                    agreement_id=self.agreement_id,
                     year=datetime.now(UTC).year,
                 ).build_url(),
             )
@@ -124,8 +131,8 @@ class GreenchoiceApi:
             self.request(
                 "GET",
                 Rates.Request(
-                    customer_number=self.preferences.subject.customer_number,
-                    agreement_id=self.preferences.subject.agreement_id,
+                    customer_number=self.customer_number,
+                    agreement_id=self.agreement_id,
                 ).build_url(),
             )
         )
@@ -134,11 +141,14 @@ class GreenchoiceApi:
 
     def update(self) -> dict:
         self.result = {}
-        try:
-            self.preferences = self.get_preferences()
-        except ApiError:
-            _LOGGER.error("Cant get preferences")
-            return self.result
+        if not self.customer_number or not self.agreement_id:
+            try:
+                preferences = self.get_preferences()
+                self.customer_number = preferences.subject.customer_number
+                self.agreement_id = preferences.subject.agreement_id
+            except ApiError:
+                _LOGGER.error("Cant get preferences")
+                return self.result
 
         try:
             self.update_usage_values(self.result)

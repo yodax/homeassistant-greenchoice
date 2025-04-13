@@ -24,7 +24,50 @@ greenchoiceuser: your@user.name
 ```YAML
 sensor:
   - platform: greenchoice
-    name: meterstanden
+    name: meter_readings
     password: !secret greenchoicepass
     username: !secret greenchoiceuser
+```
+
+### Specifying Agreement Id
+
+By default, this sensor uses the preferred agreement id for the user. This is what you normally see when you open `https://mijn.greenchoice.nl/`
+If you would like to gather results for a specific agreement id, you can fill in the optional `customer_number` and `agreement_id` config values.
+
+You can check what your currently preferred customer number and agreement id is with this url: `https://mijn.greenchoice.nl/api/v2/preferences`
+To find all your customer numbers and agreement ids you can use this url: `https://mijn.greenchoice.nl/api/v2/profiles`
+
+
+```YAML
+sensor:
+  - platform: greenchoice
+    name: meter_readings
+    password: !secret greenchoicepass
+    username: !secret greenchoiceuser
+    customer_number: 12341234
+    agreement_id: 56785678
+```
+
+### Gathering data for multiple contracts:
+
+You can also gather data for multiple contracts, by using multiple copies of this sensor. Here is an example configuration:
+
+```YAML
+sensor:
+  - platform: greenchoice
+    name: greenchoice_user1
+    password: !secret greenchoicepass1
+    username: !secret greenchoiceuser1
+  - platform: greenchoice
+    name: greenchoice_user2_agreement1
+    password: !secret greenchoicepass2
+    username: !secret greenchoiceuser2
+    customer_number: 12341234
+    agreement_id: 11111111
+  - platform: greenchoice
+    name: greenchoice_user2_agreement2
+    password: !secret greenchoicepass2
+    username: !secret greenchoiceuser2
+    customer_number: 12341234
+    agreement_id: 22222222
 ```
