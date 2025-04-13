@@ -7,15 +7,12 @@ The sensor will check every hour if a new reading can be retrieved but Greenchoi
 
 ### Install:
 
-[//]: # (1. Search for 'greenchoice' in [HACS]&#40;https://hacs.xyz/&#41;. )
-
-[//]: # (    *OR*)
 1. Place the 'greenchoice' folder in your 'custom_compontents' directory if it exists or create a new one under your config directory.
 2. Add your username and password to the secrets.yaml:
 
 ```YAML
-greenchoicepass: your_secret_password
-greenchoiceuser: your@user.name
+greenchoice_user: your@user.name
+greenchoice_pass: your_secret_password
 ```
 
 3. Restart Home Assistant to make it load the integration.
@@ -25,16 +22,22 @@ greenchoiceuser: your@user.name
 sensor:
   - platform: greenchoice
     name: meter_readings
-    password: !secret greenchoicepass
-    username: !secret greenchoiceuser
+    username: !secret greenchoice_user
+    password: !secret greenchoice_pass
 ```
 
-### Specifying Agreement Id
+#### HACS Installation
 
-By default, this sensor uses the preferred agreement id for the user. This is what you normally see when you open `https://mijn.greenchoice.nl/`
-If you would like to gather results for a specific agreement id, you can fill in the optional `customer_number` and `agreement_id` config values.
+You can also install this integration via the HACS. Add this repository url as a custom repository in HACS and label it as an integration. You can then install this sensor via HACS.
+
+### Specifying Contract
+
+By default, this sensor uses the preferred contract for the user. This is what you normally see when you open `https://mijn.greenchoice.nl/`
+
+If you would like to gather results for a specific contract, you can fill in the optional `customer_number` and `agreement_id` config values.
 
 You can check what your currently preferred customer number and agreement id is with this url: `https://mijn.greenchoice.nl/api/v2/preferences`
+
 To find all your customer numbers and agreement ids you can use this url: `https://mijn.greenchoice.nl/api/v2/profiles`
 
 
@@ -42,8 +45,8 @@ To find all your customer numbers and agreement ids you can use this url: `https
 sensor:
   - platform: greenchoice
     name: meter_readings
-    password: !secret greenchoicepass
-    username: !secret greenchoiceuser
+    username: !secret greenchoice_user
+    password: !secret greenchoice_pass
     customer_number: 12341234
     agreement_id: 56785678
 ```
@@ -56,18 +59,18 @@ You can also gather data for multiple contracts, by using multiple copies of thi
 sensor:
   - platform: greenchoice
     name: greenchoice_user1
-    password: !secret greenchoicepass1
-    username: !secret greenchoiceuser1
+    username: !secret greenchoice_user1
+    password: !secret greenchoice_pass1
   - platform: greenchoice
     name: greenchoice_user2_agreement1
-    password: !secret greenchoicepass2
-    username: !secret greenchoiceuser2
+    username: !secret greenchoice_user2
+    password: !secret greenchoice_pass2
     customer_number: 12341234
     agreement_id: 11111111
   - platform: greenchoice
     name: greenchoice_user2_agreement2
-    password: !secret greenchoicepass2
-    username: !secret greenchoiceuser2
+    username: !secret greenchoice_user2
+    password: !secret greenchoice_pass2
     customer_number: 12341234
     agreement_id: 22222222
 ```
