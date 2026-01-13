@@ -1,6 +1,7 @@
 import datetime
 import json
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from aioresponses import aioresponses
@@ -104,13 +105,8 @@ def init_response_without_gas(data_folder):
 @pytest.fixture
 def contract_response_callback(contract_response, contract_response_without_gas):
     def _contract_response_callback(url, **kwargs):
-        # Parse query parameters from URL
-        from urllib.parse import urlparse, parse_qs
-
         parsed = urlparse(str(url))
         query_params = parse_qs(parsed.query)
-
-        # Convert to same format as requests_mock
         qs = {k: v for k, v in query_params.items()}
 
         if qs == {
@@ -122,6 +118,7 @@ def contract_response_callback(contract_response, contract_response_without_gas)
             "zipcode": ["1234ab"],
         }:
             return contract_response
+
         if qs == {
             "agreementidelectricity": ["1111"],
             "housenumber": ["1"],

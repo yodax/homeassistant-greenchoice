@@ -1,10 +1,10 @@
 import asyncio
 import logging
 from datetime import UTC, datetime
-from typing import TypeVar, Type
+from typing import Type, TypeVar
 
 import aiohttp
-from pydantic import ValidationError, BaseModel
+from pydantic import BaseModel, ValidationError
 
 from .auth import Auth
 from .model import (
@@ -238,40 +238,3 @@ class GreenchoiceApi:
                     raise e
                 _LOGGER.warning("Ignoring invalid item: %s", item)
         return valid_items
-
-    # SYNC METHODS (Wrapper around async methods for backward compatibility)
-    @staticmethod
-    def _run_async(coro):
-        """Run async method in sync context."""
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If we're already in an async context, this won't work
-                # Fall back to creating a new loop in a thread
-                import concurrent.futures
-
-                def run_in_thread():
-                    new_loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(new_loop)
-                    try:
-                        return new_loop.run_until_complete(coro)
-                    finally:
-                        new_loop.close()
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(run_in_thread)
-                    return future.result()
-            else:
-                return loop.run_until_complete(coro)
-        except RuntimeError:
-            # No event loop exists
-            return asyncio.run(coro)
-
-    def sync_update(self) -> SensorUpdate:
-        async def _async_update_with_context():
-            async with self:
-                return await self.update()
-
-        """Sync update method (calls async implementation)."""
-        self.result = self._run_async(_async_update_with_context())
-        return self.result
