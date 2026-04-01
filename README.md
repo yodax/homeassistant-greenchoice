@@ -4,12 +4,9 @@
 [![release][release-badge]][release-url]
 ![downloads][downloads-badge]
 
-This is a Home Assistant custom component that connects to the Greenchoice API to retrieve current usage data (daily
-meter data).
-
-The integration will check every hour if a new reading can be retrieved but Greenchoice practically only gives us one
-reading a day over this API. The reading is also delayed by 1 or 2 days (this seems to vary). The sensors will give you
-the date of the reading as an attribute.
+This is a Home Assistant custom component that connects to the Greenchoice API to retrieve current usage and pricing
+data. The integration refreshes every hour and provides both daily meter readings and hourly energy statistics for use
+in the Energy dashboard.
 
 ## Installation
 
@@ -54,46 +51,78 @@ You can add multiple Greenchoice integrations for different contracts or account
 
 Each integration instance creates the following sensors:
 
-### Electricity Consumption
+### Daily Meter Readings
+
+These sensors reflect the most recent daily meter reading from Greenchoice (typically delayed by 1–2 days). The date
+of the reading is available as a sensor attribute.
 
 - **Electricity Consumption Off Peak** (kWh) - Low tariff consumption
 - **Electricity Consumption Normal** (kWh) - Normal/peak tariff consumption
 - **Electricity Consumption Total** (kWh) - Total electricity consumed
-
-### Electricity Production/Feed-in
-
 - **Electricity Feed In Off Peak** (kWh) - Low tariff feed-in to grid
 - **Electricity Feed In Normal** (kWh) - Normal/peak tariff feed-in to grid
 - **Electricity Feed In Total** (kWh) - Total electricity fed back to grid
+- **Gas Consumption** (m³) - Gas consumption
 
-### Electricity Pricing
+### Electricity & Gas Pricing
 
 - **Electricity Price Single** (€/kWh) - Single rate electricity price
 - **Electricity Price Off Peak** (€/kWh) - Low tariff electricity price
 - **Electricity Price Normal** (€/kWh) - Normal/peak tariff electricity price
 - **Electricity Feed In Compensation** (€/kWh) - Compensation rate for fed-in electricity
 - **Electricity Feed In Cost** (€/kWh) - Cost/fee for feeding electricity back
-
-### Gas
-
-- **Gas Consumption** (m³) - Gas consumption
 - **Gas Price** (€/m³) - Gas price per cubic meter
 
-All sensors include the reading date as an attribute and are automatically discovered by Home Assistant's Energy
-dashboard.
+### Hourly Statistics (Energy Dashboard)
 
-## Migration from YAML Configuration
+In addition to the daily sensors, the integration automatically imports **hourly** consumption data into Home
+Assistant's recorder statistics. This makes your energy usage visible at the per-hour granularity in the
+**Energy dashboard**.
 
-If you're upgrading from the YAML-based version:
+Three statistics series are created per integration instance:
 
-1. Remove the old YAML configuration from `configuration.yaml`
-2. Restart Home Assistant
-3. Add the integration through the UI as described above
-4. Your historical data will be preserved if you use the same entity names
+| Sensor                           | Unit | Description                                   |
+|----------------------------------|------|-----------------------------------------------|
+| Electricity consumption (hourly) | kWh  | Electricity delivered from the grid, per hour |
+| Electricity feed-in (hourly)     | kWh  | Electricity fed back to the grid, per hour    |
+| Gas consumption (hourly)         | m³   | Gas consumed, per hour                        |
+
+Hourly data is imported automatically on each refresh cycle. The integration also self-heals: if data is missing for
+up to 7 days (e.g. after an internet outage), the gaps are backfilled on the next successful refresh.
+
+> **Note:** Yesterday's data is only imported after 13:00 local time to allow Greenchoice time to publish it.
+
+## Services
+
+### `greenchoice.reimport_hourly_statistics`
+
+Force a full reimport of hourly statistics starting from a given date up to and including yesterday. Use this to
+fix gaps, negative spikes, or other artefacts in the Energy dashboard.
+
+| Field        | Type | Required | Description                                                                                                |
+|--------------|------|----------|------------------------------------------------------------------------------------------------------------|
+| `start_date` | date | yes      | The first day to reimport (inclusive). All days through yesterday are fetched and written to the recorder. |
+
+**Example:**
+
+```yaml
+service: greenchoice.reimport_hourly_statistics
+data:
+  start_date: "2026-03-01"
+```
 
 ## Troubleshooting
 
-- The integration logs to Home Assistant's default logger under the `greenchoice` domain
+- The integration logs under the `greenchoice` domain. Enable debug logging for detailed output:
+
+```yaml
+logger:
+  logs:
+    custom_components.greenchoice: debug
+```
+
+- If hourly statistics look wrong in the Energy dashboard, use the `reimport_hourly_statistics` service to
+  rewrite the affected date range.
 
 For issues or feature requests, please use the GitHub repository.
 
