@@ -2,10 +2,7 @@ import logging
 from collections import namedtuple
 from datetime import timedelta
 
-import homeassistant.helpers.config_validation as cv
-import voluptuous as vol
 from homeassistant.components.sensor import (
-    PLATFORM_SCHEMA,
     SensorDeviceClass,
     SensorEntity,
     SensorStateClass,
@@ -13,14 +10,14 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_NAME,
-    CONF_PASSWORD,
-    CONF_USERNAME,
     CURRENCY_EURO,
     UnitOfEnergy,
     UnitOfVolume,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
@@ -31,30 +28,17 @@ from homeassistant.util import slugify
 from . import CONF_AGREEMENT_ID, CONF_CUSTOMER_NUMBER
 from .api import GreenchoiceApi
 from .const import DEFAULT_NAME, DOMAIN
+from .hourly_statistics import (
+    async_import_yesterday_hourly_statistics,
+    get_hourly_store,
+    hourly_consumption_entity_id,
+    hourly_feed_in_entity_id,
+    hourly_gas_entity_id,
+    hourly_statistics_signal,
+)
 from .model import SensorUpdate
 
 _LOGGER = logging.getLogger(__name__)
-
-MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=3600)
-UPDATE_INTERVAL = timedelta(hours=1)
-
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
-    {
-        vol.Required(CONF_USERNAME): cv.string,
-        vol.Required(CONF_PASSWORD): cv.string,
-        vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
-        vol.Optional(
-            CONF_CUSTOMER_NUMBER,
-            description="Fill in if you would like to use a specific customer number",
-            default=0,
-        ): cv.positive_int,
-        vol.Optional(
-            CONF_AGREEMENT_ID,
-            description="Fill in if you would like to use a specific agreement id",
-            default=0,
-        ): cv.positive_int,
-    }
-)
 
 
 class Unit:
@@ -110,9 +94,16 @@ async def async_setup_entry(
     """Set up Greenchoice sensors from a config entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
 
-    sensors = [
+    sensors: list[SensorEntity] = [
         GreenchoiceSensor(coordinator, sensor_name) for sensor_name in sensor_infos
     ]
+    sensors.extend(
+        [
+            GreenchoiceHourlyEnergySensor(hass, entry, kind="electricity_consumption"),
+            GreenchoiceHourlyEnergySensor(hass, entry, kind="electricity_feed_in"),
+            GreenchoiceHourlyEnergySensor(hass, entry, kind="gas_consumption"),
+        ]
+    )
 
     async_add_entities(sensors)
 
@@ -138,7 +129,18 @@ class GreenchoiceDataUpdateCoordinator(DataUpdateCoordinator[SensorUpdate]):
         """Update data via library."""
         try:
             async with self.api:
-                return await self.api.update()
+                data = await self.api.update()
+
+                # Side-effect: backfill yesterday's hourly consumption into recorder stats.
+                # This is idempotent and safe to run on each refresh.
+                try:
+                    await async_import_yesterday_hourly_statistics(
+                        self.hass, api=self.api, entry=self.config_entry
+                    )
+                except Exception as err:
+                    _LOGGER.debug("Hourly statistics import failed: %s", err)
+
+                return data
         except Exception as exception:
             _LOGGER.error("Failed to update data: %s", exception)
             raise UpdateFailed() from exception
@@ -198,4 +200,74 @@ class GreenchoiceSensor(CoordinatorEntity, SensorEntity):
             "measurement_date": getattr(
                 self.coordinator.data, self._measurement_date_key
             )
+        }
+
+
+class GreenchoiceHourlyEnergySensor(SensorEntity):
+    """Energy dashboard compatible sensor for imported hourly statistics.
+
+    This entity exists mainly so the Energy dashboard UI can select it; the actual
+    hourly data is imported into recorder statistics.
+    """
+
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, *, kind: str) -> None:
+        self._hass = hass
+        self._entry = entry
+        self._kind = kind
+
+        config_name = entry.data.get(CONF_NAME, DEFAULT_NAME)
+        prefix = slugify(config_name)
+
+        if kind == "electricity_consumption":
+            self._attr_device_class = SensorDeviceClass.ENERGY
+            self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+            self._attr_name = f"{config_name} Electricity consumption (hourly)"
+            self._attr_unique_id = f"{prefix}_electricity_consumption_hourly"
+            self._attr_icon = "mdi:transmission-tower-export"
+            self.entity_id = hourly_consumption_entity_id(config_name)
+        elif kind == "electricity_feed_in":
+            self._attr_device_class = SensorDeviceClass.ENERGY
+            self._attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+            self._attr_name = f"{config_name} Electricity feed-in (hourly)"
+            self._attr_unique_id = f"{prefix}_electricity_feed_in_hourly"
+            self._attr_icon = "mdi:transmission-tower-import"
+            self.entity_id = hourly_feed_in_entity_id(config_name)
+        elif kind == "gas_consumption":
+            self._attr_device_class = SensorDeviceClass.GAS
+            self._attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
+            self._attr_name = f"{config_name} Gas consumption (hourly)"
+            self._attr_unique_id = f"{prefix}_gas_consumption_hourly"
+            self._attr_icon = "mdi:fire"
+            self.entity_id = hourly_gas_entity_id(config_name)
+        else:
+            raise ValueError(f"Unknown kind: {kind}")
+
+        self._store: Store[dict] = get_hourly_store(hass, entry.entry_id)
+        self._attr_native_value = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        await self._async_refresh_from_store()
+
+        signal = hourly_statistics_signal(self._entry.entry_id)
+        self.async_on_remove(
+            async_dispatcher_connect(self._hass, signal, self._async_handle_signal)
+        )
+
+    async def _async_handle_signal(self) -> None:
+        await self._async_refresh_from_store()
+        self.async_write_ha_state()
+
+    async def _async_refresh_from_store(self) -> None:
+        stored = await self._store.async_load() or {}
+        store_key = {
+            "electricity_consumption": "last_sum_consumption",
+            "electricity_feed_in": "last_sum_feed_in",
+            "gas_consumption": "last_sum_gas",
+        }[self._kind]
+        self._attr_native_value = stored.get(store_key) or 0.0
+        self._attr_extra_state_attributes = {
+            "last_imported": stored.get("last_imported"),
         }

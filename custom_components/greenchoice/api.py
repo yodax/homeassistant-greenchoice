@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Type, TypeVar
 
 import aiohttp
@@ -8,6 +8,7 @@ from pydantic import BaseModel, ValidationError
 
 from .auth import Auth
 from .model import (
+    Consumptions,
     MeterProduct,
     MeterReadings,
     Preferences,
@@ -117,6 +118,13 @@ class GreenchoiceApi:
         profiles_json = await self.request("/api/v2/Profiles/")
         return self.validate_list(Profile, profiles_json, ignore_invalid=True)
 
+    async def _ensure_credentials(self) -> None:
+        """Fetch and cache customer_number / agreement_id if not already set."""
+        if not self.customer_number or not self.agreement_id:
+            prefs = await self.get_preferences()
+            self.customer_number = prefs.customer_number
+            self.agreement_id = prefs.agreement_id
+
     async def get_meter_readings(self) -> MeterReadings:
         meter_json = await self.request(
             MeterReadings.Request(
@@ -136,17 +144,32 @@ class GreenchoiceApi:
         )
         return Rates.model_validate(pricing_details)
 
+    async def get_consumptions(self, *, interval: str, start: date) -> Consumptions:
+        """Fetch consumptions for a given interval and date range."""
+        await self._ensure_credentials()
+
+        # API only supports 1 day intervals, so end is always start + 1 day
+        end = start + timedelta(days=1)
+
+        consumptions_json = await self.request(
+            Consumptions.Request(
+                customer_number=self.customer_number,
+                agreement_id=self.agreement_id,
+                interval=interval,
+                start=start,
+                end=end,
+            ).build_url()
+        )
+        return Consumptions.model_validate(consumptions_json)
+
     async def update(self) -> SensorUpdate:
         """Async update method."""
         result = SensorUpdate()
-        if not self.customer_number or not self.agreement_id:
-            try:
-                preferences = await self.get_preferences()
-                self.customer_number = preferences.customer_number
-                self.agreement_id = preferences.agreement_id
-            except ApiError:
-                _LOGGER.error("Cant get preferences")
-                return result
+        try:
+            await self._ensure_credentials()
+        except ApiError:
+            _LOGGER.error("Cant get preferences")
+            return result
 
         try:
             await self.update_usage_values(result)
