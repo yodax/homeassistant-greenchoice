@@ -292,6 +292,67 @@ class TestReimportStatistics:
         mixin.process_day.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_partial_reimport_after_full_reimport_is_safe(self):
+        """Full reimport 1st–30th, then partial reimport 15th–30th → all values correct.
+
+        The first day of every reimport range always starts with seed_sums=None.
+        In production code this triggers a DB lookup (async_get_last_sum) that
+        returns the correct end-of-day-14 baseline, so the cumulative sums for
+        days 15–30 are recalculated correctly.  Days 1–14 are never touched.
+
+        This test confirms the exact seeds received by each call so the contract
+        is explicit and regression-proof.
+        """
+        # today = March 31 → yesterday = March 30, so the range covers all 30 days.
+        _MARCH_31 = date(2026, 3, 31)
+        START = date(2026, 3, 1)   # first day of full reimport
+        MID = date(2026, 3, 15)    # first day of partial reimport
+
+        # Each day returns sum = day-of-month * 10.0  (e.g. March 14 → 140.0).
+        def _end_sum(day: date) -> dict[str, float]:
+            return {"stat": float((day - START).days + 1) * 10.0}
+
+        # ── First reimport: 1st → 30th ──────────────────────────────────────
+        seeds_first: dict[date, object] = {}
+
+        async def _process_first(day, seed):
+            seeds_first[day] = seed
+            return _end_sum(day)
+
+        mixin = _FakeMixin()
+        mixin.process_day = AsyncMock(side_effect=_process_first)
+        with _patch_today(_MARCH_31):
+            await mixin.async_reimport_statistics(START)
+
+        # Spot-check seed chaining in the first reimport.
+        assert seeds_first[START] is None                    # first day → DB lookup
+        assert seeds_first[date(2026, 3, 2)] == {"stat": 10.0}   # chained from Mar 1
+        assert seeds_first[date(2026, 3, 15)] == {"stat": 140.0} # chained from Mar 14
+        assert seeds_first[date(2026, 3, 30)] == {"stat": 290.0} # chained from Mar 29
+
+        # ── Second reimport: 15th → 30th ────────────────────────────────────
+        seeds_second: dict[date, object] = {}
+
+        async def _process_second(day, seed):
+            seeds_second[day] = seed
+            return _end_sum(day)
+
+        mixin.process_day = AsyncMock(side_effect=_process_second)
+        with _patch_today(_MARCH_31):
+            await mixin.async_reimport_statistics(MID)
+
+        # Day 15 is the first day of the partial reimport → seed must be None.
+        # In real code this causes async_get_last_sum to read the correct
+        # end-of-day-14 value (140.0) from the DB, so the sums stay correct.
+        assert seeds_second[MID] is None                          # DB lookup triggered
+        # Days 16–30 chain directly from the previous day's return value.
+        assert seeds_second[date(2026, 3, 16)] == {"stat": 150.0} # chained from Mar 15
+        assert seeds_second[date(2026, 3, 30)] == {"stat": 290.0} # chained from Mar 29
+        # Days 1–14 were never called in the second reimport.
+        assert START not in seeds_second
+        assert date(2026, 3, 14) not in seeds_second
+
+    @pytest.mark.asyncio
     async def test_500_in_middle_skips_day_and_continues(self):
         """HTTP 500 on one reimport day must be skipped; others are still imported."""
         mixin = _FakeMixin()
