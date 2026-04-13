@@ -14,6 +14,14 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.greenchoice.api import BASE_URL
 from custom_components.greenchoice.const import DOMAIN
+from custom_components.greenchoice.ha_external_statistics import (
+    external_statistic as _ext_stat_mod,
+    recorder as _recorder_mod,
+)
+
+_PATCH_ADD_STAT = f"{_ext_stat_mod.__name__}.async_add_external_statistics"
+_PATCH_GET_INSTANCE = f"{_recorder_mod.__name__}.get_instance"
+_PATCH_SDP = f"{_recorder_mod.__name__}.statistics_during_period"
 
 
 @pytest.fixture
@@ -302,33 +310,25 @@ def mock_api(
 
 @pytest.fixture
 def mock_import_statistics():
-    """Patch async_add_external_statistics in hourly_statistics for the duration of the test."""
-    with patch(
-        "custom_components.greenchoice.hourly_statistics.async_add_external_statistics",
-        new=Mock(),
-    ) as m:
+    """Patch async_add_external_statistics in external_statistic for the duration of the test."""
+    with patch(_PATCH_ADD_STAT, new=Mock()) as m:
         yield m
 
 
 @pytest.fixture
-def patch_now():
-    """Factory: patches dt_util.now in hourly_statistics to control which day is 'yesterday'.
+def patch_today():
+    """Factory: patches _today() on the coordinator to fix 'today' for tests.
 
-    Usage: ``with patch_now(date(2026, 3, 28)):``
-    Pass a ``date`` (midnight UTC is assumed) or a full ``datetime``.
+    Usage: ``with patch_today(date(2026, 3, 28)):``
     """
+    from custom_components.greenchoice.sensor import GreenchoiceDataUpdateCoordinator
 
     def _patch(return_value):
-        if isinstance(return_value, date) and not isinstance(
-            return_value, datetime.datetime
-        ):
-            from datetime import UTC
-
-            return_value = datetime.datetime(
-                return_value.year, return_value.month, return_value.day, tzinfo=UTC
-            )
-        return patch(
-            "custom_components.greenchoice.hourly_statistics.dt_util.now",
+        if isinstance(return_value, datetime.datetime):
+            return_value = return_value.date()
+        return patch.object(
+            GreenchoiceDataUpdateCoordinator,
+            "_today",
             return_value=return_value,
         )
 
@@ -339,13 +339,14 @@ def patch_now():
 def patch_recorder_days():
     """Factory: returns a context manager that stubs the HA recorder statistics API.
 
-    Patches ``get_instance`` and ``statistics_during_period`` — the recorder
-    boundary our code crosses — so tests remain independent of internal implementation.
+    Patches ``get_instance`` and ``statistics_during_period`` in recorder.py —
+    the recorder boundary our code crosses — so tests remain independent of
+    internal HA implementation.
 
     Pass a ``{date: sum}`` dict to represent end-of-day cumulative sums already
-    present in the recorder.  When ``_get_sum_before`` queries a 25-hour window
+    present in the recorder.  When ``async_get_last_sum`` queries a 25-hour window
     the fixture returns the latest entry whose 23:00 UTC timestamp falls inside
-    the queried range, matching the lazy-seed logic in ``_process_day_range``.
+    the queried range.
     """
 
     def _patch(day_sums: dict[date, float] = None):
@@ -378,14 +379,8 @@ def patch_recorder_days():
         @contextmanager
         def _ctx():
             with (
-                patch(
-                    "custom_components.greenchoice.hourly_statistics.get_instance",
-                    return_value=mock_recorder_instance,
-                ),
-                patch(
-                    "custom_components.greenchoice.hourly_statistics.statistics_during_period",
-                    side_effect=_fake_statistics_during_period,
-                ),
+                patch(_PATCH_GET_INSTANCE, return_value=mock_recorder_instance),
+                patch(_PATCH_SDP, side_effect=_fake_statistics_during_period),
             ):
                 yield
 
