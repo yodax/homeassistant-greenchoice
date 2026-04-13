@@ -76,8 +76,14 @@ class TestProcessDayRange:
         assert date(2026, 3, 27) in processed
 
     @pytest.mark.asyncio
-    async def test_seed_reset_after_failure(self):
-        """Seed sums must be reset to None for the day after a failure."""
+    async def test_seed_preserved_after_failure(self):
+        """Seed sums must be preserved after a failure (failed day = zero consumption).
+
+        Resetting the seed to None causes the next day to re-query the DB with a
+        stale baseline, which produces a large negative spike in the statistics graph.
+        Instead the last-successful seed should be forwarded unchanged so the
+        cumulative sum continues from the correct value.
+        """
         mixin = _FakeMixin()
         seeds_received: dict[date, object] = {}
 
@@ -92,9 +98,11 @@ class TestProcessDayRange:
             [date(2026, 3, 25), date(2026, 3, 26), date(2026, 3, 27)]
         )
 
-        assert seeds_received[date(2026, 3, 25)] is None  # no prior seed
+        assert seeds_received[date(2026, 3, 25)] is None   # no prior seed
         assert seeds_received[date(2026, 3, 26)] == {"stat": 1.0}  # chained from 25
-        assert seeds_received[date(2026, 3, 27)] is None  # reset after 26 failed
+        # Seed must be preserved (not reset) so the next day's cumulative sum
+        # continues from the same baseline instead of producing a negative spike.
+        assert seeds_received[date(2026, 3, 27)] == {"stat": 1.0}
 
     @pytest.mark.asyncio
     async def test_seeds_chained_across_consecutive_successes(self):
