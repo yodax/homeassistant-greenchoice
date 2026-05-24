@@ -1,6 +1,6 @@
 [project]
 name = "homeassistant-greenchoice"
-version = "3.3.2"
+version = "3.3.3"
 description = "Integration to connect Greenchoice.nl with Home Assistant"
 authors = ["Baris Demirdelen <barisdemirdelen@gmail.com>"]
 readme = "README.md"
@@ -23,5 +23,5 @@ dev = [
     "pytest-homeassistant-custom-component>=0.13.306",
     "aioresponses>=0.7.8",
     "ruff>=0.9.4",
-    "ty>=0.0.0a8",
+    "ty>=0.0.39",
 ]

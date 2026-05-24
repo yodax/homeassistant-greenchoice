@@ -43,13 +43,15 @@ class Auth:
         await self.close_session()
 
     @property
-    def session(self):
+    def session(self) -> aiohttp.ClientSession:
         """Get the current session."""
+        if self._session is None:
+            raise RuntimeError("Session is not open; use 'async with Auth(...)'")
         return self._session
 
     async def _get_antiforgery_token(self) -> str:
         """Get the antiforgery token from the API."""
-        async with self._session.get(f"{self.sso_url}/api/antiforgery") as response:
+        async with self.session.get(f"{self.sso_url}/api/antiforgery") as response:
             response.raise_for_status()
             data = await response.json()
             return data["requestToken"]
@@ -66,9 +68,9 @@ class Auth:
             raise LoginError("Login failed, check your credentials?")
 
         return {
-            "code": code_elem.attrs.get("value"),
-            "state": state_elem.attrs.get("value"),
-            "session_state": session_state_elem.attrs.get("value"),
+            "code": str(code_elem.attrs.get("value", "")),
+            "state": str(state_elem.attrs.get("value", "")),
+            "session_state": str(session_state_elem.attrs.get("value", "")),
         }
 
     def is_session_expired(self, response: aiohttp.ClientResponse) -> bool:
@@ -98,7 +100,7 @@ class Auth:
         antiforgery_token = await self._get_antiforgery_token()
 
         # Get the login page to extract returnUrl
-        async with self._session.get(self.base_url) as login_page:
+        async with self.session.get(self.base_url) as login_page:
             login_url = str(login_page.url)
             return_url_params = parse_qs(urlparse(login_url).query)
             return_url = return_url_params.get("ReturnUrl", [""])[0]
@@ -125,7 +127,7 @@ class Auth:
 
         # Send login request to the correct endpoint
         login_url = f"{self.sso_url}/api/login"
-        async with self._session.post(
+        async with self.session.post(
             login_url, json=login_data, headers=headers
         ) as auth_page:
             auth_page.raise_for_status()
@@ -143,14 +145,14 @@ class Auth:
 
         # Follow the redirect to complete OAuth flow
         self.logger.debug("Following OAuth redirect")
-        async with self._session.get(f"{self.sso_url}{redirect_uri}") as oauth_response:
+        async with self.session.get(f"{self.sso_url}{redirect_uri}") as oauth_response:
             oauth_response.raise_for_status()
             oauth_text = await oauth_response.text()
 
         # Continue with OIDC flow
         self.logger.debug("Signing in using OIDC")
         oidc_params = self._get_oidc_params(oauth_text)
-        async with self._session.post(
+        async with self.session.post(
             f"{self.base_url}/signin-oidc", data=oidc_params
         ) as response:
             response.raise_for_status()
