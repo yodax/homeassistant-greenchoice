@@ -152,12 +152,9 @@ class GreenchoiceDataUpdateCoordinator(
         Called from within an open ``async with self.api:`` context.
         """
         config_name = (
-            (self.config_entry.data.get(CONF_NAME) or self.config_entry.title)
-            or DOMAIN
-        )
-        electricity_stats, gas_stats = _make_statistics(
-            self.config_entry, config_name
-        )
+            self.config_entry.data.get(CONF_NAME) or self.config_entry.title
+        ) or DOMAIN
+        electricity_stats, gas_stats = _make_statistics(self.config_entry, config_name)
 
         consumptions = await self.api.get_consumptions(interval="Hour", start=day)
         items = sorted(consumptions.consumption_costs, key=lambda x: x.consumed_on)
@@ -188,7 +185,9 @@ class GreenchoiceDataUpdateCoordinator(
             await self.async_reimport_statistics(start_date)
 
 
-class GreenchoiceSensor(CoordinatorEntity[GreenchoiceDataUpdateCoordinator], SensorEntity):
+class GreenchoiceSensor(
+    CoordinatorEntity[GreenchoiceDataUpdateCoordinator], SensorEntity
+):
     """Representation of a Greenchoice sensor for async config flow."""
 
     def __init__(
@@ -206,9 +205,6 @@ class GreenchoiceSensor(CoordinatorEntity[GreenchoiceDataUpdateCoordinator], Sen
         )
 
         sensor_info = sensor_infos[self._measurement_type]
-
-        if not coordinator.config_entry:
-            return
 
         # Get human-readable name from config entry
         sensor_title = coordinator.config_entry.data.get(CONF_NAME, DEFAULT_NAME)
