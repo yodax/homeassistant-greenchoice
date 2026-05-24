@@ -16,6 +16,8 @@ from custom_components.greenchoice.api import BASE_URL
 from custom_components.greenchoice.const import DOMAIN
 from custom_components.greenchoice.ha_external_statistics import (
     external_statistic as _ext_stat_mod,
+)
+from custom_components.greenchoice.ha_external_statistics import (
     recorder as _recorder_mod,
 )
 
@@ -349,7 +351,7 @@ def patch_recorder_days():
     the queried range.
     """
 
-    def _patch(day_sums: dict[date, float] = None):
+    def _patch(day_sums: dict[date, float] | None = None):
         if not day_sums:
             day_sums = {}
 

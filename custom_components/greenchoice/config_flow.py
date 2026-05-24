@@ -5,8 +5,8 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_EMAIL, CONF_NAME, CONF_PASSWORD
-from homeassistant.data_entry_flow import FlowResult
 
 from .api import GreenchoiceApi
 from .const import (
@@ -34,7 +34,7 @@ class GreenchoiceConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle the initial step - email and password."""
         errors: dict[str, str] = {}
 
@@ -44,7 +44,7 @@ class GreenchoiceConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             try:
                 # Test the connection and get profiles
-                api = GreenchoiceApi(self.email, self.password)
+                api = GreenchoiceApi(self.email or "", self.password or "")
 
                 async with api:
                     self.profiles = await api.get_profiles()
@@ -72,7 +72,7 @@ class GreenchoiceConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_profile(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle profile selection step."""
         errors: dict[str, str] = {}
 

@@ -127,6 +127,10 @@ class GreenchoiceApi:
             self.agreement_id = prefs.agreement_id
 
     async def get_meter_readings(self) -> MeterReadings:
+
+        if not self.customer_number or not self.agreement_id:
+            raise ApiError("Can not find customer_number or agreement_id for request")
+
         meter_json = await self.request(
             MeterReadings.Request(
                 customer_number=self.customer_number,
@@ -137,6 +141,9 @@ class GreenchoiceApi:
         return MeterReadings(product_types=self.validate_list(MeterProduct, meter_json))
 
     async def get_rates(self) -> Rates:
+        if not self.customer_number or not self.agreement_id:
+            raise ApiError("Can not find customer_number or agreement_id for request")
+
         pricing_details = await self.request(
             Rates.Request(
                 customer_number=self.customer_number,
@@ -148,8 +155,10 @@ class GreenchoiceApi:
     async def get_consumptions(self, *, interval: str, start: date) -> Consumptions:
         """Fetch consumptions for a given interval and date range."""
         await self._ensure_credentials()
+        if not self.customer_number or not self.agreement_id:
+            raise ApiError("Can not find customer_number or agreement_id for request")
 
-        # API only supports 1 day intervals, so end is always start + 1 day
+        # API only supports 1-day intervals, so end is always start + 1 day
         end = start + timedelta(days=1)
 
         consumptions_json = await self.request(
@@ -226,32 +235,34 @@ class GreenchoiceApi:
         except ValidationError:
             return
 
-        if pricing_details.electricity:
+        if electricity_details := pricing_details.electricity:
             electricity_usage = (
-                pricing_details.electricity.rates.usage_dependent_electricity_rates
+                electricity_details.rates.usage_dependent_electricity_rates
             )
-            result.electricity_price_single = (
-                electricity_usage.all_in_delivery_single_including_vat
-            )
-            result.electricity_price_off_peak = (
-                electricity_usage.all_in_delivery_low_including_vat
-            )
-            result.electricity_price_normal = (
-                electricity_usage.all_in_delivery_normal_including_vat
-            )
-            result.electricity_feed_in_compensation = (
-                electricity_usage.feed_in_compensation
-            )
-            result.electricity_feed_in_cost = (
-                electricity_usage.feed_in_cost_including_vat
-            )
+            if electricity_usage:
+                result.electricity_price_single = (
+                    electricity_usage.all_in_delivery_single_including_vat
+                )
+                result.electricity_price_off_peak = (
+                    electricity_usage.all_in_delivery_low_including_vat
+                )
+                result.electricity_price_normal = (
+                    electricity_usage.all_in_delivery_normal_including_vat
+                )
+                result.electricity_feed_in_compensation = (
+                    electricity_usage.feed_in_compensation
+                )
+                result.electricity_feed_in_cost = (
+                    electricity_usage.feed_in_cost_including_vat
+                )
 
-        if pricing_details.gas:
-            result.gas_price = pricing_details.gas.rates.usage_dependent_gas_rates.all_in_delivery_including_vat
+        if gas_details := pricing_details.gas:
+            if gas_details.rates.usage_dependent_gas_rates:
+                result.gas_price = gas_details.rates.usage_dependent_gas_rates.all_in_delivery_including_vat
 
     @staticmethod
     def validate_list(
-        model: Type[T], data: list[dict], ignore_invalid: bool = False
+        model: Type[T], data: dict | list, ignore_invalid: bool = False
     ) -> list[T]:
         """Validate a list of items against a Pydantic model, optionally ignoring invalid items."""
         valid_items = []

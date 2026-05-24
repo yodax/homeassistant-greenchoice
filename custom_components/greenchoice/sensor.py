@@ -102,6 +102,8 @@ class GreenchoiceDataUpdateCoordinator(
 ):
     """Class to manage fetching data from the API."""
 
+    config_entry: ConfigEntry
+
     def __init__(
         self, hass: HomeAssistant, api: GreenchoiceApi, config_entry: ConfigEntry
     ) -> None:
@@ -150,22 +152,22 @@ class GreenchoiceDataUpdateCoordinator(
         Called from within an open ``async with self.api:`` context.
         """
         config_name = (
-            self.config_entry.data.get(CONF_NAME) or self.config_entry.title or DOMAIN
-        )
-        elec_stats, gas_stats = _make_statistics(self.config_entry, config_name)
+            self.config_entry.data.get(CONF_NAME) or self.config_entry.title
+        ) or DOMAIN
+        electricity_stats, gas_stats = _make_statistics(self.config_entry, config_name)
 
         consumptions = await self.api.get_consumptions(interval="Hour", start=day)
         items = sorted(consumptions.consumption_costs, key=lambda x: x.consumed_on)
-        elec_items = [item for item in items if item.electricity]
+        electricity_items = [item for item in items if item.electricity]
         gas_items = [item for item in items if item.gas]
 
-        if not elec_items and not gas_items:
+        if not electricity_items and not gas_items:
             _LOGGER.debug("No hourly data for %s — will retry on next update", day)
             return None
 
         stats_entries = [
-            *(  (stat, elec_items) for stat in elec_stats  ),
-            *(  (stat, gas_items) for stat in gas_stats  ),
+            *((stat, electricity_items) for stat in electricity_stats),
+            *((stat, gas_items) for stat in gas_stats),
         ]
         # Drop stats whose item list is empty (e.g. no gas on electricity-only day).
         stats_entries = [(stat, entries) for stat, entries in stats_entries if entries]
@@ -183,7 +185,9 @@ class GreenchoiceDataUpdateCoordinator(
             await self.async_reimport_statistics(start_date)
 
 
-class GreenchoiceSensor(CoordinatorEntity, SensorEntity):
+class GreenchoiceSensor(
+    CoordinatorEntity[GreenchoiceDataUpdateCoordinator], SensorEntity
+):
     """Representation of a Greenchoice sensor for async config flow."""
 
     def __init__(
