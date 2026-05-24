@@ -12,11 +12,10 @@ use in the Energy dashboard.
 
 ### HACS Installation (Recommended)
 
-1. Add this repository URL as a custom repository in HACS and label it as an integration
-2. Install the "Greenchoice" integration via HACS
-3. Restart Home Assistant
-4. Go to **Settings** > **Devices & Services** > **Add Integration**
-5. Search for "Greenchoice" and follow the configuration steps
+1. This repository is under default HACS repositories, just search "Greenchoice" intergration via HACS and install it.
+2. Restart Home Assistant
+3. Go to **Settings** > **Devices & Services** > **Add Integration**
+4. Search for "Greenchoice" and follow the configuration steps
 
 ### Manual Installation
 
