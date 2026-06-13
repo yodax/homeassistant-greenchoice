@@ -2,7 +2,8 @@
   "domain": "greenchoice",
   "name": "Greenchoice",
   "codeowners": [
-    "@barisdemirdelen"
+    "@barisdemirdelen",
+    "@jessevl"
   ],
   "config_flow": true,
   "dependencies": [

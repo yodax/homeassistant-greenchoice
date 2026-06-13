@@ -80,14 +80,14 @@ Assistant's recorder statistics. This makes your energy usage visible at the per
 
 Six statistics series are created per integration instance:
 
-| Sensor                                      | Unit | Description                                          |
-|---------------------------------------------|------|------------------------------------------------------|
-| Electricity consumption (hourly)            | kWh  | Electricity delivered from the grid, per hour        |
-| Electricity feed-in (hourly)                | kWh  | Electricity fed back to the grid, per hour           |
-| Gas consumption (hourly)                    | m³   | Gas consumed, per hour                               |
-| Electricity consumption cost (hourly)       | €    | Cost of electricity delivered, per hour              |
-| Electricity feed-in compensation (hourly)   | €    | Compensation received for electricity fed in, per hour |
-| Gas consumption cost (hourly)               | €    | Cost of gas consumed, per hour                       |
+| Sensor                                    | Unit | Description                                            |
+|-------------------------------------------|------|--------------------------------------------------------|
+| Electricity consumption (hourly)          | kWh  | Electricity delivered from the grid, per hour          |
+| Electricity feed-in (hourly)              | kWh  | Electricity fed back to the grid, per hour             |
+| Gas consumption (hourly)                  | m³   | Gas consumed, per hour                                 |
+| Electricity consumption cost (hourly)     | €    | Cost of electricity delivered, per hour                |
+| Electricity feed-in compensation (hourly) | €    | Compensation received for electricity fed in, per hour |
+| Gas consumption cost (hourly)             | €    | Cost of gas consumed, per hour                         |
 
 Hourly data is imported automatically on each refresh cycle. On the first run the last 7 days are backfilled so the
 Energy dashboard is populated immediately after installation. On every subsequent refresh the last 3 days are
@@ -156,6 +156,12 @@ logger:
   rewrite the affected date range.
 
 For issues or feature requests, please use the GitHub repository.
+
+## Acknowledgements
+
+- Original work by [@jessevl](https://github.com/jessevl)
+
+- Based on the repo [jessevl/homeassistant-greenchoice](https://github.com/jessevl/homeassistant-greenchoice)
 
 <!-- Badges -->
 
