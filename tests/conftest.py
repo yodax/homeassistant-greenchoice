@@ -1,4 +1,5 @@
 import datetime
+import inspect
 import json
 import re
 from contextlib import contextmanager
@@ -7,6 +8,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 from urllib.parse import parse_qs, urlparse
 
+import aiohttp
 import pytest
 from aioresponses import CallbackResult, aioresponses
 from homeassistant.const import CONF_NAME
@@ -24,6 +26,26 @@ from custom_components.greenchoice.ha_external_statistics import (
 _PATCH_ADD_STAT = f"{_ext_stat_mod.__name__}.async_add_external_statistics"
 _PATCH_GET_INSTANCE = f"{_recorder_mod.__name__}.get_instance"
 _PATCH_SDP = f"{_recorder_mod.__name__}.statistics_during_period"
+
+# source https://github.com/j7an/dep-rank/pull/123
+# todo Delete when aioresponses updates its compatibility with aiohttp
+# aiohttp 3.14 added a required keyword-only ``stream_writer`` argument to
+# ``ClientResponse.__init__``. aioresponses (<=0.7.9) builds mocked responses
+# without it, so every mocked request raises ``TypeError: ... missing 1
+# required keyword-only argument: 'stream_writer'``. aiohttp only reads
+# ``stream_writer.output_size``, so a ``Mock(output_size=0)`` suffices.
+#
+# This mirrors the upstream fix (aioresponses#288, tracking aioresponses#289).
+# The signature guard makes it a no-op on aiohttp < 3.14 and once aioresponses
+# ships a release that supplies the argument itself; remove this shim then.
+_response_init = aiohttp.ClientResponse.__init__
+if "stream_writer" in inspect.signature(_response_init).parameters:
+
+    def _patched_response_init(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        kwargs.setdefault("stream_writer", Mock(output_size=0))
+        _response_init(self, *args, **kwargs)
+
+    aiohttp.ClientResponse.__init__ = _patched_response_init  # ty:ignore[invalid-assignment]
 
 
 @pytest.fixture
