@@ -223,24 +223,47 @@ class ConsumptionCostsElectricity(CamelCaseModel):
     """Electricity details inside /consumptions response."""
 
     delivery_low_consumption: float | None = None
+    delivery_low_costs: float | None = None
     delivery_normal_consumption: float | None = None
+    delivery_normal_costs: float | None = None
     feed_in_low_consumption: float | None = None
+    feed_in_low_compensation: float | None = None
     feed_in_normal_consumption: float | None = None
+    feed_in_normal_compensation: float | None = None
+    variable_feed_in_costs: float | None = None
+    fixed_delivery_costs: float | None = None
+    grid_operator_costs: float | None = None
+    reduction_energy_tax: float | None = None
 
     total_delivery_consumption: float | None = None
-    total_feed_in_consumption: float | None = None
     total_delivery_costs: float | None = None
+    total_feed_in_consumption: float | None = None
     total_feed_in_compensation: float | None = None
     total_feed_in_costs: float | None = None
     total_fixed_costs: float | None = None
+    has_consumption: bool | None = None
 
 
 class ConsumptionCostsGas(CamelCaseModel):
     """Gas details inside /consumptions response."""
 
+    delivery_consumption: float | None = None
+    delivery_costs: float | None = None
+    fixed_delivery_costs: float | None = None
+    grid_operator_costs: float | None = None
+
     total_delivery_consumption: float | None = None
     total_delivery_costs: float | None = None
     total_fixed_costs: float | None = None
+    has_consumption: bool | None = None
+
+
+class ConsumptionCostsNet(CamelCaseModel):
+    """Net electricity/cost summary inside /consumptions response."""
+
+    net_electricity_consumption: float | None = None
+    net_electricity_costs: float | None = None
+    net_costs: float | None = None
 
 
 class ConsumptionCostsItem(CamelCaseModel):
@@ -249,6 +272,8 @@ class ConsumptionCostsItem(CamelCaseModel):
     consumed_on: datetime
     electricity: ConsumptionCostsElectricity | None = None
     gas: ConsumptionCostsGas | None = None
+    net: ConsumptionCostsNet | None = None
+    has_consumption: bool | None = None
 
 
 class Consumptions(CamelCaseModel):
@@ -258,6 +283,8 @@ class Consumptions(CamelCaseModel):
     start: datetime
     end: datetime
     consumption_costs: list[ConsumptionCostsItem] = []
+    total: ConsumptionCostsItem | None = None
+    has_consumption: bool | None = None
 
     class Request(BaseModel):
         request_url: str = (
