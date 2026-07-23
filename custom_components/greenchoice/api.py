@@ -9,7 +9,6 @@ from pydantic import BaseModel, ValidationError
 from .auth import Auth
 from .model import (
     Consumptions,
-    MeterProduct,
     MeterReadings,
     Preferences,
     Profile,
@@ -137,7 +136,7 @@ class GreenchoiceApi:
                 year=datetime.now(UTC).year,
             ).build_url(),
         )
-        return MeterReadings(product_types=self.validate_list(MeterProduct, meter_json))
+        return MeterReadings.model_validate(meter_json)
 
     async def get_rates(self) -> Rates:
         if not self.customer_number or not self.agreement_id:

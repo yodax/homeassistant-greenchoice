@@ -27,7 +27,7 @@ _PATCH_ADD_STAT = f"{_ext_stat_mod.__name__}.async_add_external_statistics"
 _PATCH_GET_INSTANCE = f"{_recorder_mod.__name__}.get_instance"
 _PATCH_SDP = f"{_recorder_mod.__name__}.statistics_during_period"
 
-# source https://github.com/j7an/dep-rank/pull/123
+# source https://github.com/pnuckowski/aioresponses/pull/288
 # todo Delete when aioresponses updates its compatibility with aiohttp
 # aiohttp 3.14 added a required keyword-only ``stream_writer`` argument to
 # ``ClientResponse.__init__``. aioresponses (<=0.7.9) builds mocked responses
@@ -107,28 +107,10 @@ def meters_response(data_folder):
 def meters_response_without_gas(data_folder):
     with data_folder.joinpath("test_meters.json").open() as f:
         response = json.load(f)
-    del response["aansluitingGegevens"][1]
+    response["hasGas"] = False
+    for month in response["months"]:
+        month["readings"] = [r for r in month["readings"] if r["gas"] is None]
     return response
-
-
-@pytest.fixture
-def meters_v2_response(data_folder):
-    with data_folder.joinpath("test_meters_v2.json").open() as f:
-        return json.load(f)
-
-
-@pytest.fixture
-def meters_v2_response_without_gas(data_folder):
-    with data_folder.joinpath("test_meters_v2.json").open() as f:
-        response = json.load(f)
-    del response[1]
-    return response
-
-
-@pytest.fixture
-def init_response(data_folder):
-    with data_folder.joinpath("test_init.json").open() as f:
-        return json.load(f)
 
 
 @pytest.fixture
@@ -141,20 +123,6 @@ def profiles_response(data_folder):
 def preferences_response(data_folder):
     with data_folder.joinpath("test_preferences.json").open() as f:
         return json.load(f)
-
-
-@pytest.fixture
-def tariffs_v1_response(data_folder):
-    with data_folder.joinpath("test_tariffs_v1.json").open() as f:
-        return json.load(f)
-
-
-@pytest.fixture
-def init_response_without_gas(data_folder):
-    with data_folder.joinpath("test_init.json").open() as f:
-        response = json.load(f)
-    del response["klantgegevens"][0]["adressen"][0]["contracten"][1]
-    return response
 
 
 @pytest.fixture
@@ -202,19 +170,14 @@ def consumptions_hour_with_gas_response(data_folder):
 @pytest.fixture
 def mock_api(
     mocker,
-    init_response,
     meters_response,
-    meters_v2_response,
     profiles_response,
     preferences_response,
-    tariffs_v1_response,
     contract_response_callback,
     contract_response_current,
     contract_response_current_without_gas,
     contract_response_current_without_gas_single,
-    init_response_without_gas,
     meters_response_without_gas,
-    meters_v2_response_without_gas,
 ):
     with aioresponses() as mocked:
 
@@ -229,18 +192,6 @@ def mock_api(
                 "custom_components.greenchoice.auth.Auth.refresh_session",
                 return_value=None,
             )
-
-            mocked.get(
-                f"{BASE_URL}/microbus/init",
-                payload=init_response if has_gas else init_response_without_gas,
-            )
-
-            mocked.post(
-                f"{BASE_URL}/microbus/request",
-                payload=meters_response if has_gas else meters_response_without_gas,
-            )
-
-            mocked.get(f"{BASE_URL}/api/tariffs", payload=tariffs_v1_response)
 
             if has_rates:
                 mocked.get(
@@ -274,9 +225,9 @@ def mock_api(
                     f"{BASE_URL}/api/v2/customers/2222/agreements/1111/meter-readings/"
                     f"{datetime.datetime.now(datetime.UTC).year}/"
                 ),
-                payload=meters_v2_response
+                payload=meters_response
                 if has_gas
-                else meters_v2_response_without_gas,
+                else meters_response_without_gas,
             )
 
             if has_rates:

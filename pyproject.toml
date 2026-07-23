@@ -1,6 +1,6 @@
 [project]
 name = "homeassistant-greenchoice"
-version = "3.3.3"
+version = "3.3.4"
 description = "Integration to connect Greenchoice.nl with Home Assistant"
 authors = ["Baris Demirdelen <barisdemirdelen@gmail.com>"]
 readme = "README.md"
@@ -24,4 +24,5 @@ dev = [
     "aioresponses>=0.7.8",
     "ruff>=0.9.4",
     "ty>=0.0.39",
+    "python-dotenv>=1.2.2",
 ]

@@ -148,19 +148,21 @@ class Reading(CamelCaseModel):
     off_peak_feed_in: float | None = None
     gas: float | None = None
 
+    @property
+    def is_gas(self) -> bool:
+        return self.gas is not None
+
 
 class MeterMonth(BaseModel):
     month: int
     readings: list[Reading]
 
 
-class MeterProduct(CamelCaseModel):
-    product_type: str
+class MeterReadings(CamelCaseModel):
+    year: int
+    has_electricity: bool
+    has_gas: bool
     months: list[MeterMonth]
-
-
-class MeterReadings(BaseModel):
-    product_types: list[MeterProduct]
 
     class Request(BaseModel):
         request_url: str = """/api/v2/customers/{customer_number}/agreements/{agreement_id}/meter-readings/{year}/"""
@@ -178,25 +180,24 @@ class MeterReadings(BaseModel):
 
     @property
     def last_electricity_reading(self) -> Reading | None:
-        for last_reading in self.iter_readings("stroom"):
+        for last_reading in self.iter_readings(is_gas=False):
             return last_reading
         return None
 
     @property
     def last_gas_reading(self) -> Reading | None:
-        for last_reading in self.iter_readings("gas"):
+        for last_reading in self.iter_readings(is_gas=True):
             return last_reading
         return None
 
-    def iter_readings(self, product_type) -> Iterator[Reading]:
-        for product in self.product_types:
-            if product.product_type.lower() != product_type:
-                continue
-            for month in sorted(product.months, key=lambda p: p.month, reverse=True):
-                for reading in sorted(
-                    month.readings, key=lambda r: r.reading_date, reverse=True
-                ):
-                    yield reading
+    def iter_readings(self, is_gas: bool) -> Iterator[Reading]:
+        readings = [
+            reading
+            for month in self.months
+            for reading in month.readings
+            if reading.is_gas == is_gas
+        ]
+        yield from sorted(readings, key=lambda r: r.reading_date, reverse=True)
 
 
 class SensorUpdate(BaseModel):
