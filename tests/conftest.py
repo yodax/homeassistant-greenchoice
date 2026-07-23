@@ -27,7 +27,7 @@ _PATCH_ADD_STAT = f"{_ext_stat_mod.__name__}.async_add_external_statistics"
 _PATCH_GET_INSTANCE = f"{_recorder_mod.__name__}.get_instance"
 _PATCH_SDP = f"{_recorder_mod.__name__}.statistics_during_period"
 
-# source https://github.com/j7an/dep-rank/pull/123
+# source https://github.com/pnuckowski/aioresponses/pull/288
 # todo Delete when aioresponses updates its compatibility with aiohttp
 # aiohttp 3.14 added a required keyword-only ``stream_writer`` argument to
 # ``ClientResponse.__init__``. aioresponses (<=0.7.9) builds mocked responses
