@@ -24,4 +24,5 @@ dev = [
     "aioresponses>=0.7.8",
     "ruff>=0.9.4",
     "ty>=0.0.39",
+    "python-dotenv>=1.2.2",
 ]
