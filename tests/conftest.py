@@ -121,7 +121,9 @@ def meters_v2_response(data_folder):
 def meters_v2_response_without_gas(data_folder):
     with data_folder.joinpath("test_meters_v2.json").open() as f:
         response = json.load(f)
-    del response[1]
+    response["hasGas"] = False
+    for month in response["months"]:
+        month["readings"] = [r for r in month["readings"] if r["gas"] is None]
     return response
 
 
