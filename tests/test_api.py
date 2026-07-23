@@ -60,7 +60,7 @@ async def test_update_request_without_gas(mock_api):
 
 
 @pytest.mark.asyncio
-async def test_with_old_tariffs_api(mock_api):
+async def test_update_request_without_rates(mock_api):
     mock_api(has_rates=False)
 
     async with GreenchoiceApi("fake_user", "fake_password") as greenchoice_api:
