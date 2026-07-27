@@ -45,7 +45,7 @@ if "stream_writer" in inspect.signature(_response_init).parameters:
         kwargs.setdefault("stream_writer", Mock(output_size=0))
         _response_init(self, *args, **kwargs)
 
-    aiohttp.ClientResponse.__init__ = _patched_response_init  # ty:ignore[invalid-assignment]
+    aiohttp.ClientResponse.__init__ = _patched_response_init
 
 
 @pytest.fixture
@@ -225,9 +225,7 @@ def mock_api(
                     f"{BASE_URL}/api/v2/customers/2222/agreements/1111/meter-readings/"
                     f"{datetime.datetime.now(datetime.UTC).year}/"
                 ),
-                payload=meters_response
-                if has_gas
-                else meters_response_without_gas,
+                payload=meters_response if has_gas else meters_response_without_gas,
             )
 
             if has_rates:
