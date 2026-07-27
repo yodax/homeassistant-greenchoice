@@ -1,7 +1,6 @@
-import asyncio
 import logging
 from datetime import UTC, date, datetime, timedelta
-from typing import Type, TypeVar
+from typing import TypeVar
 
 import aiohttp
 from pydantic import BaseModel, ValidationError
@@ -93,7 +92,7 @@ class GreenchoiceApi:
                 response.raise_for_status()
                 return await response.json()
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        except (TimeoutError, aiohttp.ClientError) as e:
             _LOGGER.error("HTTP Error: %s", e)
             if _retry_count == 0:
                 raise ApiError(f"HTTP Error: {e}")
@@ -184,13 +183,11 @@ class GreenchoiceApi:
             await self.update_usage_values(result)
         except ApiError:
             _LOGGER.error("Cant update usage values")
-            pass
 
         try:
             await self.update_contract_values(result)
         except ApiError:
             _LOGGER.error("Cant update contract values")
-            pass
 
         return result
 
@@ -252,21 +249,22 @@ class GreenchoiceApi:
                     electricity_usage.feed_in_cost_including_vat
                 )
 
-        if gas_details := pricing_details.gas:
-            if gas_details.rates.usage_dependent_gas_rates:
-                result.gas_price = gas_details.rates.usage_dependent_gas_rates.all_in_delivery_including_vat
+        if (gas_details := pricing_details.gas) and (
+            gas_rates := gas_details.rates.usage_dependent_gas_rates
+        ):
+            result.gas_price = gas_rates.all_in_delivery_including_vat
 
     @staticmethod
     def validate_list(
-        model: Type[T], data: dict | list, ignore_invalid: bool = False
+        model: type[T], data: dict | list, ignore_invalid: bool = False
     ) -> list[T]:
         """Validate a list of items against a Pydantic model, optionally ignoring invalid items."""
         valid_items = []
         for item in data:
             try:
                 valid_items.append(model.model_validate(item))
-            except ValidationError as e:
+            except ValidationError:
                 if not ignore_invalid:
-                    raise e
+                    raise
                 _LOGGER.warning("Ignoring invalid item: %s", item)
         return valid_items
