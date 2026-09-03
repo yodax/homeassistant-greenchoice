@@ -266,6 +266,8 @@ class GreenchoiceApi:
             _LOGGER.warning("Could not parse the rate details response")
             return
 
+        # The electricity field names are inferred, not verified — see
+        # StandardVariableElectricityRates. Gas below is verified.
         if electricity_rates := pricing_details.electricity:
             result.electricity_price_single = _all_in_rate(
                 electricity_rates.delivery_single

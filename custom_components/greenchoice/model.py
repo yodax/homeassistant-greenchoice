@@ -146,6 +146,9 @@ class RateAmount(CamelCaseModel):
     ``all_in_rate_including_vat`` is delivery + energy tax + VAT — the number the
     Greenchoice portal shows as the headline tariff, and what the price sensors
     report.
+
+    VERIFIED against a live gas response: the value here matched the portal's
+    displayed gas tariff exactly.
     """
 
     energy_tax: float | None = None
@@ -159,7 +162,23 @@ class RateAmount(CamelCaseModel):
 
 
 class StandardVariableElectricityRates(CamelCaseModel):
-    """Electricity rates for a Standard (non time-of-use) contract."""
+    """Electricity rates for a Standard (non time-of-use) contract.
+
+    ASSUMPTION — these field names are NOT verified against a live response.
+    They were read off the Greenchoice portal's own frontend code, because the
+    account this was developed against has no electricity contract and returned
+    ``electricityRates: null`` every time. The gas equivalents below it are
+    verified; these are not.
+
+    Two specific guesses worth re-checking against a real electricity account:
+      * ``feed_in_compensation`` is a bare number, not a nested rate object —
+        the portal passes it straight to its formatter without reading a field.
+      * the three delivery rates are nested objects, read via
+        ``all_in_rate_including_vat`` like gas.
+
+    If either is wrong the electricity sensors stay ``None`` and a warning names
+    the field; gas is unaffected (see ``Rates._ignore_unparseable_field``).
+    """
 
     delivery_single: RateAmount | None = None
     delivery_normal: RateAmount | None = None
@@ -171,15 +190,19 @@ class StandardVariableElectricityRates(CamelCaseModel):
 class ElectricityRates(CamelCaseModel):
     """Electricity section of /rate-details.
 
-    Time-of-use contracts report per-time-slot rates under
-    ``timeOfUseVariableRates`` instead, which has no single-value equivalent for
-    the price sensors and is therefore not mapped.
+    NOT IMPLEMENTED: time-of-use contracts report per-time-slot rates under
+    ``timeOfUseVariableRates`` instead. There is no single value the current
+    price sensors could hold, so it is deliberately left unmapped — such an
+    account gets the "no gas and no electricity rates" warning rather than a
+    wrong number.
     """
 
     standard_variable_rates: StandardVariableElectricityRates | None = None
 
 
 class GasVariableRates(CamelCaseModel):
+    """Gas rates. VERIFIED against a live response."""
+
     delivery: RateAmount | None = None
 
 
