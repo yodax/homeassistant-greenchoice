@@ -149,3 +149,23 @@ async def test_update_request_rates_without_any_fuel_warns(mock_api, caplog):
     assert result.gas_price is None
     assert result.electricity_price_single is None
     assert "contain neither electricity nor gas rates" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_unparseable_electricity_still_reports_gas(mock_api, caplog):
+    """A wrong electricity shape must not blank the gas price.
+
+    The two fuels are independent sections of one response; validating them
+    atomically would let an unexpected electricity shape discard a valid gas
+    rate. Relevant because the electricity mapping is inferred from the
+    portal frontend rather than an observed response.
+    """
+    mock_api(has_gas=True, has_rates=True, bad_electricity=True)
+
+    async with GreenchoiceApi("fake_user", "fake_password") as greenchoice_api:
+        result = await greenchoice_api.update()
+
+    assert result.gas_price == 0.8
+    assert result.electricity_price_single is None
+    assert result.electricity_feed_in_compensation is None
+    assert "Ignoring unparseable electricity_rates" in caplog.text

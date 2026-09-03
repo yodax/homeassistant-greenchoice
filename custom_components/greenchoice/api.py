@@ -1,6 +1,7 @@
 import logging
 from datetime import UTC, date, datetime, timedelta
 from typing import TypeVar
+from zoneinfo import ZoneInfo
 
 import aiohttp
 from pydantic import BaseModel, ValidationError
@@ -21,6 +22,11 @@ from .model import (
 _LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://mijn.greenchoice.nl"
+
+# Rates change on Dutch calendar days, so "today" must be local to the
+# supplier: between midnight and 01:00/02:00 CET/CEST, UTC is still yesterday
+# and would return the previous day's rate on a tariff-change date.
+SUPPLIER_TZ = ZoneInfo("Europe/Amsterdam")
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -169,7 +175,7 @@ class GreenchoiceApi:
 
         # A range starting today returns the rates in effect today, so a
         # contract that renews later in the range doesn't shadow them.
-        today = datetime.now(UTC).date()
+        today = datetime.now(SUPPLIER_TZ).date()
         pricing_details = await self.request(
             Rates.Request(
                 customer_number=self.customer_number,

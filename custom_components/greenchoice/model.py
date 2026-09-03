@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import Iterator
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 from pydantic.alias_generators import to_camel
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class CamelCaseModel(BaseModel):
@@ -198,6 +201,21 @@ class Rates(CamelCaseModel):
     end: date | None = None
     electricity_rates: ElectricityRates | None = None
     gas_rates: GasRates | None = None
+
+    @field_validator("electricity_rates", "gas_rates", mode="wrap")
+    @classmethod
+    def _ignore_unparseable_fuel(cls, value, handler, info):
+        """Keep one fuel's shape change from blanking the other fuel's price.
+
+        The two are independent sections of the same response, so validating
+        them atomically would let an unexpected electricity shape discard a
+        perfectly good gas rate (and vice versa).
+        """
+        try:
+            return handler(value)
+        except ValidationError as err:
+            _LOGGER.warning("Ignoring unparseable %s: %s", info.field_name, err)
+            return None
 
     class Request(BaseModel):
         request_url: str = (

@@ -93,6 +93,23 @@ def rate_details_response_empty(data_folder):
 
 
 @pytest.fixture
+def rate_details_response_bad_electricity(data_folder):
+    """Electricity in a shape the model doesn't expect, gas still valid.
+
+    Guards the isolation between the two fuels: the electricity mapping was
+    derived from the portal's frontend rather than an observed response, so a
+    wrong guess there must not take the gas price down with it.
+    """
+    with data_folder.joinpath("test_rate_details.json").open() as f:
+        response = json.load(f)
+    rates = response["electricityRates"]["standardVariableRates"]
+    # A scalar where a rate object is expected, and vice versa.
+    rates["deliverySingle"] = 0.25
+    rates["feedInCompensation"] = {"rateIncludingVat": 0.08}
+    return response
+
+
+@pytest.fixture
 def rate_details_response_without_gas(data_folder):
     with data_folder.joinpath("test_rate_details.json").open() as f:
         response = json.load(f)
@@ -200,6 +217,7 @@ def mock_api(
     rate_details_response_without_gas_single,
     rate_details_response_gas_only,
     rate_details_response_empty,
+    rate_details_response_bad_electricity,
     meters_response_without_gas,
 ):
     with aioresponses() as mocked:
@@ -211,6 +229,7 @@ def mock_api(
             double_rate: bool = True,
             has_electricity: bool = True,
             empty_rates: bool = False,
+            bad_electricity: bool = False,
             consumptions: dict | None = None,
         ):
             mocker.patch(
@@ -262,6 +281,8 @@ def mock_api(
                     payload = rate_details_response_gas_only
                 if empty_rates:
                     payload = rate_details_response_empty
+                if bad_electricity:
+                    payload = rate_details_response_bad_electricity
                 mocked.get(rate_details_url, payload=payload)
             else:
                 mocked.get(rate_details_url, payload={"status": 404}, status=404)
