@@ -113,3 +113,39 @@ async def test_update_request_with_agreement_id(
         "gas_reading_date": datetime.datetime(2022, 5, 6, 0, 0),
         "gas_price": 0.8,
     }
+
+
+@pytest.mark.asyncio
+async def test_update_request_gas_only(mock_api):
+    """A gas-only agreement still reports a gas price.
+
+    Regression test: Greenchoice moved the rates to
+    ``/api/v3/.../rate-details``. The retired v2 ``contracts/current`` answered
+    404, which the client turned into ``{}``, and the resulting ValidationError
+    was swallowed — leaving gas_price silently ``unknown``.
+    """
+    mock_api(has_gas=True, has_rates=True, has_electricity=False)
+
+    async with GreenchoiceApi("fake_user", "fake_password") as greenchoice_api:
+        result = await greenchoice_api.update()
+
+    assert result.gas_price == 0.8
+    assert result.gas_consumption == 10000.0
+    assert result.electricity_price_single is None
+    assert result.electricity_price_normal is None
+    assert result.electricity_price_off_peak is None
+    assert result.electricity_feed_in_compensation is None
+    assert result.electricity_feed_in_cost is None
+
+
+@pytest.mark.asyncio
+async def test_update_request_rates_without_any_fuel_warns(mock_api, caplog):
+    """Rates carrying neither fuel must be logged, not silently dropped."""
+    mock_api(has_gas=True, has_rates=True, empty_rates=True)
+
+    async with GreenchoiceApi("fake_user", "fake_password") as greenchoice_api:
+        result = await greenchoice_api.update()
+
+    assert result.gas_price is None
+    assert result.electricity_price_single is None
+    assert "contain neither electricity nor gas rates" in caplog.text
