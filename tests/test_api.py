@@ -169,3 +169,17 @@ async def test_unparseable_electricity_still_reports_gas(mock_api, caplog):
     assert result.electricity_price_single is None
     assert result.electricity_feed_in_compensation is None
     assert "Ignoring unparseable electricity_rates" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_unparseable_period_still_reports_rates(mock_api, rate_details_response):
+    """start/end only label log lines, so a bad one must not cost us a rate."""
+    from custom_components.greenchoice.model import Rates
+
+    payload = dict(rate_details_response, start="not-a-date")
+    rates = Rates.model_validate(payload)
+
+    assert rates.start is None
+    assert rates.gas is not None
+    assert rates.gas.delivery is not None
+    assert rates.gas.delivery.all_in_rate_including_vat == 0.8

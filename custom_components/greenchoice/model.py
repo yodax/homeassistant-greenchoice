@@ -202,14 +202,15 @@ class Rates(CamelCaseModel):
     electricity_rates: ElectricityRates | None = None
     gas_rates: GasRates | None = None
 
-    @field_validator("electricity_rates", "gas_rates", mode="wrap")
+    @field_validator("start", "end", "electricity_rates", "gas_rates", mode="wrap")
     @classmethod
-    def _ignore_unparseable_fuel(cls, value, handler, info):
-        """Keep one fuel's shape change from blanking the other fuel's price.
+    def _ignore_unparseable_field(cls, value, handler, info):
+        """Keep one field's shape change from blanking the rest of the response.
 
-        The two are independent sections of the same response, so validating
-        them atomically would let an unexpected electricity shape discard a
-        perfectly good gas rate (and vice versa).
+        The two fuels are independent sections of the same response, so
+        validating them atomically would let an unexpected electricity shape
+        discard a perfectly good gas rate (and vice versa). start/end only
+        label log messages, so they must never cost us a rate either.
         """
         try:
             return handler(value)
