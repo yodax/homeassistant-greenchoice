@@ -290,7 +290,7 @@ class GreenchoiceApi:
         if not pricing_details.electricity and not pricing_details.gas:
             # Don't let a shape change leave the price sensors silently unknown.
             _LOGGER.warning(
-                "Rate details for %s..%s contain neither electricity nor gas rates",
+                "Rate details for %s..%s contain no gas and no electricity rates",
                 pricing_details.start,
                 pricing_details.end,
             )

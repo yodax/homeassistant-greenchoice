@@ -84,7 +84,7 @@ def rate_details_response_gas_only(data_folder):
 
 @pytest.fixture
 def rate_details_response_empty(data_folder):
-    """Neither fuel present — the shape that silently blanked the price sensors."""
+    """No gas and no electricity — the shape that silently blanked the sensors."""
     with data_folder.joinpath("test_rate_details.json").open() as f:
         response = json.load(f)
     response["electricityRates"] = None
@@ -96,7 +96,7 @@ def rate_details_response_empty(data_folder):
 def rate_details_response_bad_electricity(data_folder):
     """Electricity in a shape the model doesn't expect, gas still valid.
 
-    Guards the isolation between the two fuels: the electricity mapping was
+    Guards gas against electricity: the electricity mapping was
     derived from the portal's frontend rather than an observed response, so a
     wrong guess there must not take the gas price down with it.
     """

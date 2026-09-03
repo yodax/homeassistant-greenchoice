@@ -139,8 +139,8 @@ async def test_update_request_gas_only(mock_api):
 
 
 @pytest.mark.asyncio
-async def test_update_request_rates_without_any_fuel_warns(mock_api, caplog):
-    """Rates carrying neither fuel must be logged, not silently dropped."""
+async def test_update_request_rates_without_any_rates_warns(mock_api, caplog):
+    """A rate response with no gas and no electricity must be logged, not dropped."""
     mock_api(has_gas=True, has_rates=True, empty_rates=True)
 
     async with GreenchoiceApi("fake_user", "fake_password") as greenchoice_api:
@@ -148,16 +148,16 @@ async def test_update_request_rates_without_any_fuel_warns(mock_api, caplog):
 
     assert result.gas_price is None
     assert result.electricity_price_single is None
-    assert "contain neither electricity nor gas rates" in caplog.text
+    assert "contain no gas and no electricity rates" in caplog.text
 
 
 @pytest.mark.asyncio
 async def test_unparseable_electricity_still_reports_gas(mock_api, caplog):
     """A wrong electricity shape must not blank the gas price.
 
-    The two fuels are independent sections of one response; validating them
-    atomically would let an unexpected electricity shape discard a valid gas
-    rate. Relevant because the electricity mapping is inferred from the
+    Gas and electricity are independent sections of one response; validating
+    them together would let an unexpected electricity shape discard a valid
+    gas rate. Relevant because the electricity mapping is inferred from the
     portal frontend rather than an observed response.
     """
     mock_api(has_gas=True, has_rates=True, bad_electricity=True)
